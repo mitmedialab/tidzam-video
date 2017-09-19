@@ -1,7 +1,7 @@
 # TidmarshCWD
 Tidmarsh Camera Wildlife Detection
 
-This is a project of 5 students from the ESILV school in France in partnership withe the MIT Lab
+This is a project of 5 students from the ESILV school in France in partnership with the MIT Lab.
 The goal of the project is to replace the way the wildlife on the Tidmarsh site is currently recognized.
 More informations about Tidmarch can be found at http://www.livingobservatory.org/ and http://tidmarsh.media.mit.edu/
 
