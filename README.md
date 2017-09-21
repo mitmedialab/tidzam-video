@@ -9,6 +9,6 @@ This repository will contain the source code of the project using TensorFlow (ht
 
 ## Dependencies Installation
 
-'''bash
-sudo bash .config
-'''
+```bash
+sudo bash config.sh
+```
