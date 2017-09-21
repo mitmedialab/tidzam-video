@@ -7,3 +7,8 @@ More informations about Tidmarch can be found at http://www.livingobservatory.or
 
 This repository will contain the source code of the project using TensorFlow (https://www.tensorflow.org) and the records of the project.
 
+##Dependencies Installation
+
+"""
+sudo bash .config
+"""
