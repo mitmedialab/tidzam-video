@@ -99,3 +99,9 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# Image
+*.jpg
+
+# Video
+*.mp4
