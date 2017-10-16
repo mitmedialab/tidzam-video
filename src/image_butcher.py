@@ -1,17 +1,21 @@
 from PIL import Image
 import numpy as np
 
+import imageio
+
+def PILtoNpArray(image):
+	return np.array(image.getdata(),np.uint8).reshape(image.size[1],image.size[0],3)
+
 class ImageButcher:
 	def __init__(self,size_factor):
 		self.IMG_SIZE = (720,500) 
-		self.MIN_SIZE = 15
+		self.MIN_SIZE = 60
 		self.size_factor = size_factor
 		
 	def get_batches(self,image):
 		batches = []
 		i = 0
-		image.resize(self.IMG_SIZE,Image.HAMMING)
-		image = PILtoNpArray(image)
+		image = PILtoNpArray(Image.fromarray(image).resize(self.IMG_SIZE,Image.HAMMING))
 		windowSize = self.IMG_SIZE
 		curr_factor = 1
 		while(min(windowSize) > self.MIN_SIZE):
@@ -26,9 +30,9 @@ class ImageButcher:
 		batch = []
 		step_y = int(windowSize[1]/2)
 		step_x = int(windowSize[0]/2)
-		for y in range(0, image.shape[0], step_y):
+		for y in range(0, image.shape[0] - step_y , step_y):
 			raw = []
-			for x in range(0, image.shape[1],step_x):
+			for x in range(0, image.shape[1] - step_x ,step_x):
 				# yield the current window
 				if(x + windowSize[0] > self.IMG_SIZE[0] or y + windowSize[1] > self.IMG_SIZE[1]):
 					break
@@ -37,13 +41,10 @@ class ImageButcher:
 				batch.append(raw)
 		return batch
 
-def PILtoNpArray(image):
-	return np.array(image.getdata(),np.uint8).reshape(image.size[1],image.size[0],3)
 
 if __name__ == "__main__":
-	img = Image.open("bird.jpg")
+	img = imageio.imread("bird.jpg")
 	batcher = ImageButcher(2.0)
-
 	batches = batcher.get_batches(img)
 
 	for batch in batches:
