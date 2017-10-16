@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 import os
 import inception
+from multiprocessing.dummy import Pool as ThreadPool
 
 # Download the image
 def download_image(url, path):
@@ -64,3 +65,24 @@ def infos():
 		print('            ' + l['label'])
 
 	print('===========================================\n')
+
+# Batches pipeline
+def pipeline(model, image, x, y, z):
+	possible_labels = inception.classify(model, image = image)
+	labels = validate_labels(possible_labels)
+	return labels, x, y, z
+
+def batch_label_matching(model, batch):
+	pool = ThreadPool()
+	
+	results = [[[[] for x in range(len(batch[z][y]))] for y in range(len(batch[z]))] for z in range(len(batch))]
+	n = sum([len(batch[z]) * len(batch[z][0]) for z in range(len(batch))])
+	
+	indexes = [[[(x, y, z) for x in range(len(batch[z][y]))] for y in range(len(batch[z]))] for z in range(len(batch))]
+
+	threads = [pool.apply_async(pipeline, args=(
+		model, batch[index[2]][index[1]][index[0]], index[0], index[1], index[2])) for index in indexes]
+
+	for thread in threads:
+		labels, x, y, z = thread.get()
+		results[z][y][x] = labels
