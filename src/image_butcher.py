@@ -7,9 +7,9 @@ def PILtoNpArray(image):
 	return np.array(image.getdata(),np.uint8).reshape(image.size[1],image.size[0],3)
 
 class ImageButcher:
-	def __init__(self,size_factor):
-		self.IMG_SIZE = (720,500) 
-		self.MIN_SIZE = 100
+	def __init__(self,size_factor,img_size,min_size):
+		self.IMG_SIZE = img_size
+		self.MIN_SIZE = min_size
 		self.size_factor = size_factor
 		
 	def get_batches(self,image):
@@ -48,10 +48,22 @@ class ImageButcher:
 		return	(size_batch,step_x * x,step_y * y)
 
 if __name__ == "__main__":
+
 	from utils import *
 	from PIL import ImageDraw
-	img = imageio.imread("bigbird.jpg")
-	batcher = ImageButcher(2.0)
+	import argparse
+
+	parser = argparse.ArgumentParser(description="This script allow you to try out the image segmentation")
+
+	parser.add_argument("-f","--factor",default="1.5",help="size factor by which the batch is readuce at each iteration",type=float)
+	parser.add_argument("-ims","--image_size",default="1920x1080",help="Format to which the image will be resized to perform all the process")
+	parser.add_argument("-ms","--min_size",default="50",help="The minimum size that each edge of a batch is allow to attain",type=int)
+	parser.add_argument("-im","--image",default="bird.jpg",help="image to segment")
+
+	args = parser.parse_args()
+	args.image_size = int(args.image_size.split("x")[0]) , int(args.image_size.split("x")[1])
+	img = imageio.imread(args.image)
+	batcher = ImageButcher(args.factor,args.image_size,args.min_size)
 	batches = batcher.get_batches(img)
 
 	for batch in batches:
@@ -63,15 +75,15 @@ if __name__ == "__main__":
 			if all_list is None:
 				all_list = xlist
 			else:
-				all_list = np.concatenate((all_list,xlist),axis=0)
+				all_list = np.concatenate((all_list,xlist),axis=0)	
 
 		#Image.fromarray(all_list).show()
 	model = load_inception()
 	pred = batch_label_matching(model,batches)
 	image = Image.fromarray(img)
-	image = image.resize((720,500))
+	image = image.resize(args.image_size)
 	drw = ImageDraw.Draw(image)
-	for z in range(1,2):
+	for z in range(len(pred)):
 		for y in range(len(pred[z])):
 			for x in range(len(pred[z][0])):
 				#print("{0} for {1}".format(pred[z][y][x],batcher.get_metadata(x,y,z)))

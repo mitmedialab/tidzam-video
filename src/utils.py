@@ -55,7 +55,7 @@ def validate_labels(possible_labels):
 	validation_set = []
 	for label in possible_labels:
 		for label_set in Labels:
-			if(label['label'] in label_set['set'] and not label_set['label'] in validation_set):
+			if(label['label'] in label_set['set'] and not label_set['label'] in validation_set and label['score'] > 0.5):
 				validation_set.append(label_set['label'])	
 	return validation_set
 
