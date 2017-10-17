@@ -8,6 +8,7 @@ import tensorflow as tf
 import os
 import inception
 from multiprocessing.dummy import Pool as ThreadPool
+from tqdm import tqdm
 
 # Download the image
 def download_image(url, path):
@@ -55,7 +56,7 @@ def validate_labels(possible_labels):
 	validation_set = []
 	for label in possible_labels:
 		for label_set in Labels:
-			if(label['label'] in label_set['set'] and not label_set['label'] in validation_set):
+			if(label['label'] in label_set['set'] and not label_set['label'] in validation_set and label['score'] > 0.2):
 				validation_set.append(label_set['label'])	
 	return validation_set
 
@@ -88,7 +89,7 @@ def batch_label_matching(model, batch):
 	threads = [pool.apply_async(pipeline, args=(
 		model, batch[index[2]][index[1]][index[0]], index[0], index[1], index[2])) for index in indexes]
 
-	for thread in threads:
+	for thread in tqdm(threads):
 		labels, x, y, z = thread.get()
 		results[z][y][x] = labels
 
