@@ -18,9 +18,10 @@ def download_image(url, path):
 		print('[Error] Failed to download the image ...')
 
 # Load the inception model
-def load_inception(config=None):
+def load_inception(gpu=False):
 	inception.maybe_download()
-	if config:
+	if gpu:
+		config = tf.ConfigProto(device_count = {'GPU': 0})
 		model = inception.Inception(config)
 	else:
 		model = inception.Inception()
