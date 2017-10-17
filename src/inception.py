@@ -253,7 +253,7 @@ class Inception:
     # This is used for Transfer Learning.
     tensor_name_transfer_layer = "pool_3:0"
 
-    def __init__(self):
+    def __init__(self, config=None):
         # Mappings between class-numbers and class-names.
         # Used to print the class-name as a string e.g. "horse" or "plant".
         self.name_lookup = NameLookup()
@@ -303,7 +303,10 @@ class Inception:
         self.transfer_len = self.transfer_layer.get_shape()[3]
 
         # Create a TensorFlow session for executing the graph.
-        self.session = tf.Session(graph=self.graph)
+        if config:
+            self.session = tf.Session(graph=self.graph, config=config)
+        else:
+            self.session = tf.Session(graph=self.graph)
 
     def close(self):
         """
