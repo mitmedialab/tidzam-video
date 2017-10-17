@@ -18,9 +18,12 @@ def download_image(url, path):
 		print('[Error] Failed to download the image ...')
 
 # Load the inception model
-def load_inception():
+def load_inception(config=None):
 	inception.maybe_download()
-	model = inception.Inception()
+	if config:
+		model = inception.Inception(config)
+	else:
+		model = inception.Inception()
 	return model
 
 # Classify an image
