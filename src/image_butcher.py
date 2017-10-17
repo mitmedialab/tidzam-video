@@ -67,7 +67,7 @@ if __name__ == "__main__":
 	batches = batcher.get_batches(img)
 
 	for batch in batches:
-		all_list = None
+		all_list = None 
 		for y in batch:
 			xlist = y[0]
 			for x in y[1:]:
