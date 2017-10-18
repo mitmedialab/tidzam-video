@@ -14,15 +14,10 @@ class ImageButcher:
 	def get_batches(self,image):
 		batches = []
 		i = 0
-		#image = PILtoNpArray(Image.fromarray(image).resize(self.IMG_SIZE,Image.HAMMING))
-		#windowSize = 
-		#curr_factor = 1
-		#while(min(windowSize) > self.MIN_SIZE):
 		for i in range(self.batch_depth[0],self.batch_depth[1]):
 			factor = (self.size_factor ** i)
 			batch_size = int(image.shape[0] / factor), int(image.shape[1] / factor)
 			batches.append(self.get_batch(image, batch_size))
-			#curr_factor *= self.size_factor
 		return batches
 
 	def get_batch(self,image,windowSize):
@@ -33,9 +28,6 @@ class ImageButcher:
 		for y in range(0, image.shape[0] - step_y , step_y):
 			raw = []
 			for x in range(0, image.shape[1] - step_x,step_x):
-				# yield the current window
-				#if(x + windowSize[0] > image.shape[0] or y + windowSize[1] > image.shape[1]):
-					#break
 				raw.append(image[y:y + windowSize[1], x:x + windowSize[0]])
 			if len(raw) > 0 :
 				batch.append(raw)
@@ -56,13 +48,15 @@ if __name__ == "__main__":
 
 	parser = argparse.ArgumentParser(description="This script allow you to try out the image segmentation")
 
-	parser.add_argument("-f","--factor",default="1.5",help="size factor by which the batch is readuce at each iteration",type=float)
-	parser.add_argument("-im","--image",default="bird.jpg",help="image to segment")
-
+	parser.add_argument("-f","--factor",default="1.5",help="Size factor by which the patch is reduce at each iteration",type=float)
+	parser.add_argument("-i","--image",default="bird.jpg",help="Image to segment")
+	parser.add_argument("-pf","--patch_factor",default="1:4",help="Reduction factor boundaries")
 	args = parser.parse_args()
 
 	img = imageio.imread(args.image)
-	batcher = ImageButcher(args.factor,(6,10))
+	args.patch_factor = int(args.patch_factor.split(':')[0]) , int(args.patch_factor.split(':')[1])
+
+	batcher = ImageButcher(args.factor,args.patch_factor)
 	batches = batcher.get_batches(img)
 
 	for batch in batches:
@@ -87,7 +81,7 @@ if __name__ == "__main__":
 				metadata = batcher.get_metadata(img,x,y,z)
 				pos = int(metadata[1]) , int(metadata[2])
 				pos2 = int(pos[0] + metadata[0][0]) , int(pos[1] + metadata[0][1])
-				if(len(pred[z][y][x]) == 1 and "Canadian Goose" in pred[z][y][x]):
+				if(len(pred[z][y][x]) == 1 and "Bee Eater" in pred[z][y][x]):
 					print(pos)
 					print(pos2)
 					drw.rectangle((pos , pos2),outline=(0,255,0))
