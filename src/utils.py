@@ -2,7 +2,7 @@
 import sys
 sys.path.append("label_verifier")
 
-import urllib.request
+import urllib
 import numpy as np
 import tensorflow as tf
 import os
@@ -13,7 +13,7 @@ from tqdm import tqdm
 # Download the image
 def download_image(url, path):
 	try:
-		urllib.request.urlretrieve(url, path)
+		urllib.urlretrieve(url, path)
 	except:
 		print('[Error] Failed to download the image ...')
 
