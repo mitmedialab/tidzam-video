@@ -28,7 +28,8 @@ import numpy as np
     DEBUG OUTPUT HANDLING
 """
 #debug level 0,1,2,3 the higher, the depper debug
-_DEBUG_LEVEL = 2
+_DEBUG_LEVEL = 1
+_DEBUG_DICT  = {0:"Minimum", 1: "Supervisor only", 2: "Worker status", 3: "Worker deep state"}
 def debug(msg, level = 1, err= False):
     stream = sys.stderr if err else sys.stdout
     
@@ -38,6 +39,7 @@ def debug(msg, level = 1, err= False):
 
 def handleExit():
     WorkerPool.shutdownAll()
+    
     
 
 """
@@ -182,6 +184,8 @@ class Worker(SupervisedProcess):
     The process of transmitting data from a Pool to another in done in another thread
     
     If workersAmount is set to 0, the number of workers requiered is dynamically determined
+    
+    Note that all WorkerPool should be shutdown before exit
 """
 class WorkerPool(object):
 
@@ -211,7 +215,9 @@ class WorkerPool(object):
         self.pools.append(self)
     
     @classmethod
-    def shutdownAll(cls):
+    def shutdownAll(cls): #used to shutdown all pools when exiting
+        if(len(cls.pools) == 0):
+            return
         debug("--- Stopping all pools ---")
         for pool in cls.pools:
             pool.shutdown()
@@ -226,8 +232,8 @@ class WorkerPool(object):
     def shutdown(self):
         debug(self.name+": stopping")
         self.running = False
-        
         self._stopWorkers()
+        self.pools.remove(self)
         
     #broadcast to workers and ask to stop
     def _stopWorkers(self):
@@ -257,8 +263,17 @@ class WorkerPool(object):
     def __str__(self, *args, **kwargs):
         return "WorkerPool: "+self.name    
         
-    def _manageWorkers(self):
+    def _getWorkerName(self, avbl):
         i = 1
+        k = avbl.values()
+        
+        while i in k:
+            i += 1
+        
+        return i
+        
+    def _manageWorkers(self):
+        avbl = {} #worker pid -> worker number
         if(self.autoWorkers):
             debug(self.name+" started with auto worker count")
         else:
@@ -269,10 +284,16 @@ class WorkerPool(object):
             #start processes until max amount is reached
             while len(self.workers) < self.workersAmount and threading.main_thread().isAlive():
                 worker = Worker(self.errorQueue, self.jobQueue, self.resultQueue)
-                worker.name = self.name+" Worker-"+str(i)
-                i+=1
-                worker.start()
+                number = self._getWorkerName(avbl)
+                worker.name = self.name+" Worker-"+str(number)
+                try:
+                    worker.start()
+                except OSError:
+                    print(self.name+": process start failed, mgmt will stop\nPlease stop the pool properly", file=sys.stderr)
+                    return
+                
                 self.workers[worker.pid] = worker
+                avbl[worker.pid] = number
                 debug(self.name+": worker started: pid="+str(worker.pid), level=2)
 
             if(self.autoWorkers):
@@ -305,8 +326,11 @@ class WorkerPool(object):
                 if(not self.workers[pid].is_alive()):
                     toRemove.append(pid)
                     
+                    
             for pid in toRemove:
                 del self.workers[pid]
+                del avbl[pid]
+                
         
         self.workersManagementThread = None            
         
@@ -381,8 +405,8 @@ class WorkerPool(object):
 ###############################################################
 
 def fakeFunc(arr):
-    sleep(0.1)
     #return ( (np.random.normal(size=3), np.random.normal(size=3), np.random.normal(size=3)), np.random.normal(size=3), np.random.normal(size=3))
+    sleep(0.5)
     return np.random.normal(size=2)
     
 def reception(data):
@@ -404,7 +428,7 @@ if __name__ == "__main__":
     atexit.register(handleExit)
     print("============================================================")
     print("Starting TidCam supervisor (pid="+str(os.getpid())+")")
-    print("The debug level is "+str(_DEBUG_LEVEL))
+    print("The debug level is "+str(_DEBUG_LEVEL)+ " ("+_DEBUG_DICT[_DEBUG_LEVEL]+")")
     print("============================================================")
     
     
@@ -417,12 +441,12 @@ if __name__ == "__main__":
     rec.plug(dep)
     dep.plug(prt)
     
-    pow.addJob(Job(fakeFunc, None).setMonopole())
+    #pow.addJob(Job(fakeFunc, None).setMonopole())
     
-    #for i in range(100):  
-       # pow.addJob(Job(fakeFunc, np.random.normal(size=3)  ))
+    for i in range(100):  
+        pow.addJob(Job(fakeFunc, np.random.normal(size=3)  ))
 
-    sleep(5)
-    exit()
+    sleep(12)
+    
 
     
