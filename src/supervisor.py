@@ -5,7 +5,6 @@
 
 import atexit
 from builtins import property
-from multiprocessing import Pipe
 from multiprocessing import Process
 from multiprocessing import Queue
 from multiprocessing import Value
@@ -218,7 +217,8 @@ class WorkerPool(object):
     def shutdownAll(cls): #used to shutdown all pools when exiting
         if(len(cls.pools) == 0):
             return
-        debug("--- Stopping all pools ---")
+        
+        debug("--- Stopping "+str(len(cls.pools))+" pools ---")
         for pool in cls.pools:
             pool.shutdown()
     
@@ -245,7 +245,6 @@ class WorkerPool(object):
         try:
             self.jobQueue.put(job)
         except Full:
-            #print("==== FAILED TO ADD JOB ====") #debug
             return False
         return True
     
@@ -263,7 +262,7 @@ class WorkerPool(object):
     def __str__(self, *args, **kwargs):
         return "WorkerPool: "+self.name    
         
-    def _getWorkerName(self, avbl):
+    def _getWorkerNumber(self, avbl):
         i = 1
         k = avbl.values()
         
@@ -284,11 +283,11 @@ class WorkerPool(object):
             #start processes until max amount is reached
             while len(self.workers) < self.workersAmount and threading.main_thread().isAlive():
                 worker = Worker(self.errorQueue, self.jobQueue, self.resultQueue)
-                number = self._getWorkerName(avbl)
+                number = self._getWorkerNumber(avbl)
                 worker.name = self.name+" Worker-"+str(number)
                 try:
                     worker.start()
-                except OSError:
+                except OSError: #occurs when shutting down
                     print(self.name+": process start failed, mgmt will stop\nPlease stop the pool properly", file=sys.stderr)
                     return
                 
@@ -316,7 +315,8 @@ class WorkerPool(object):
                     #print("Unhandled error from process "+str(stack[0]))  
                     debug(self.name+": err in worker: "+str(stack[1].__name__), level = 0, err=True)
                     
-                    del self.workers[stack[0]]
+                    #del self.workers[stack[0]] #done below
+                    
             except Empty:
                 pass
             
@@ -406,7 +406,7 @@ class WorkerPool(object):
 
 def fakeFunc(arr):
     #return ( (np.random.normal(size=3), np.random.normal(size=3), np.random.normal(size=3)), np.random.normal(size=3), np.random.normal(size=3))
-    sleep(0.5)
+    
     return np.random.normal(size=2)
     
 def reception(data):
@@ -432,21 +432,21 @@ if __name__ == "__main__":
     print("============================================================")
     
     
-    pow = WorkerPool("InputPool") 
+    inp = WorkerPool("InputPool") 
     rec = WorkerPool("ReceptionPool",  function=reception)
     dep = WorkerPool("2ndReceptor",  function=recep)
     prt = WorkerPool("Printer", function=afficher)
     
-    pow.plug(rec)
+    inp.plug(rec)
     rec.plug(dep)
     dep.plug(prt)
     
     #pow.addJob(Job(fakeFunc, None).setMonopole())
     
     for i in range(100):  
-        pow.addJob(Job(fakeFunc, np.random.normal(size=3)  ))
+        inp.addJob(Job(fakeFunc, np.random.normal(size=3)  ))
 
-    sleep(12)
+    sleep(4)
     
 
     
