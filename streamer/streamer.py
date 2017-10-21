@@ -6,34 +6,35 @@ class Streamer:
 	def __init__(self,url,img_rate):
 		self.url = url
 		self.img_rate = img_rate
-		self.open()
 		infos = self.meta_data()
+		self.shape = int(infos['width']),int(infos['height'])
+		self.open()
 
 	def meta_data(self):
-		command = ['ffmpeg','-i',self.url,'-']
+		#metadata of interest
+		metadataOI = ['width','height']
+
+		command = ['ffprobe', '-v' , 'error' ,'-show_format' ,'-show_streams' , self.url]
+
 		pipe  = sp.Popen(command,stdout=sp.PIPE,stderr=sp.PIPE)
-		pipe.stdout.readline()
-		infos = pipe.stderr.read()
+		infos = pipe.stdout.read()
 		pipe.terminate()
-		
 		infos = infos.split('\n')
-
-		for i in infos:
-			if 'Stream' in i:
-				info = i.split(' ')
-				dic = {'shape':info[13]} #,'frame_rate':info[20]}
-				return dic
-
+		dic = {}
+		for info in infos:
+			if info.split('=')[0] in metadataOI:
+				dic[info.split('=')[0]] = info.split('=')[1]
+		return dic
 	
 	def get_image(self):
 		self.psProcess.resume()
-		raw_image = self.pipe.stdout.read(640*360*3)
+		raw_image = self.pipe.stdout.read(self.shape[0]*self.shape[1]*3)
 		image = np.fromstring(raw_image,dtype='uint8')
 
 		if image.shape[0] == 0:
 			return None
 
-		image = image.reshape((360,640,3))
+		image = image.reshape((self.shape[1],self.shape[0],3))
 
 		self.pipe.stdout.flush()
 		self.psProcess.suspend()
