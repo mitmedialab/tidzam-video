@@ -303,6 +303,7 @@ class Inception:
         self.transfer_len = self.transfer_layer.get_shape()[3]
 
         # Create a TensorFlow session for executing the graph.
+        tf.summary.FileWriter("log",self.graph)
         if config:
             self.session = tf.Session(graph=self.graph, config=config)
         else:

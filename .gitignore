@@ -106,4 +106,6 @@ ENV/
 # Video
 *.mp4
 
+#Tensorflow datas
 src/inception/
+src/log/
