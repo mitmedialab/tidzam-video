@@ -8,6 +8,7 @@ a frame.
 Between each of these frame t = timestamp has elapsed
 """
 def slice_mp4(filename,timestamp,image_rate):
+	#imageio.plugins.ffmpeg.download()
 	vid = imageio.get_reader(filename,"ffmpeg")
 	max_time = len(vid) / image_rate
 	image_index = [int(time * image_rate) for time in range(0,int(max_time),timestamp)]
