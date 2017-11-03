@@ -3,6 +3,7 @@
  Main file for the Supervisor part of the TidCam Project
  The Supervisor manages the workers for streamers and the ROI generator
  ====================================================================
+ @author: WIN32GG
  '''
 
 import atexit
@@ -19,6 +20,7 @@ from time import sleep
 import traceback
 
 import numpy as np
+from supervisor import network
 
 #from tensorflow.python.client import device_lib
 
@@ -116,7 +118,7 @@ class Job(object):
         return "Job Object "+ str(self.__class__.__name__)
 
 """
-    Worker implementation with a specific jobQueue
+    Worker implementation with a specific dataQueue
     A Worker should no be spawned on it own without a WorkerPool
 """
 class Worker(SupervisedProcess):
@@ -158,6 +160,22 @@ class Worker(SupervisedProcess):
     def stop(self):
         self.job.destroy()
         self.isRunning.value = 0
+
+class RemoteWorkerPool:
+    
+    def __init__(self, identifier, conn):
+        self.identifier = identifier
+        self.connection = conn
+        
+    def feedData(self, data):
+        debug("Feeding data to remote WP: "+str(self.connection))
+        pck = network.Packet()
+        pck.setType(network.PACKET_TYPE_DATA)
+        pck["who"] = self.identifier
+    
+    @property
+    def runing(self):
+        return True
 
 """
     Contains a set of Workers, a JobQueue and eventually a return Queue and a callback function when a value is returned
@@ -352,11 +370,8 @@ class WorkerPool(object):
             for plugged in self._plugged:
                 try:
                     
-                    if(plugged is RemoteWorkerPool):
-                        pass #TODO send packet data
-                    else: 
-                        if(plugged.running):
-                            plugged.feedData(val)
+                    if(plugged.running):
+                        plugged.feedData(val)
                 except Exception as e:
                     debug(self.name+": exception while feeding data", err=True)
                     traceback.print_exc()
