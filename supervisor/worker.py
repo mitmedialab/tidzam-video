@@ -5,7 +5,8 @@
  ====================================================================
  @author: WIN32GG
  '''
-
+ 
+import network
 import atexit
 from multiprocessing import Process
 from multiprocessing import Queue
@@ -192,6 +193,9 @@ class WorkerPool(object):
 
     pools = []
 
+    '''
+    @note: The job is the jobClass object not a job instance
+    '''
     def __init__(self, name, job, workersAmount = 0, maxWorkers = os.cpu_count()):
         if(type(name) != type("str")):
             raise ValueError("name must be a string")
@@ -249,14 +253,6 @@ class WorkerPool(object):
         for pid in self.workers.keys():
             self.workers[pid].stop()
 
-    def addJob(self, job):
-        self.checkPoolState()
-        try:
-            self.jobQueue.put(job)
-        except Full:
-            return False
-        return True
-
     def checkPoolState(self):
         if(not self.running):
             raise EnvironmentError("Pool is not running")
@@ -274,7 +270,6 @@ class WorkerPool(object):
     def _getWorkerNumber(self, avbl):
         i = 1
         k = avbl.values()
-
         while i in k:
             i += 1
 
@@ -301,7 +296,7 @@ class WorkerPool(object):
                 try:
                     worker.start()
                 except OSError: #occurs when shutting down
-                    print(self.name+": process start failed, mgmt will stop\nPlease stop the pool properly", file=sys.stderr)
+                    print(self.name+": process start failed, mgmt will stop\nPlease stop the pool properly", file==sys.stderr)
                     return
 
                 self.workers[worker.pid] = worker

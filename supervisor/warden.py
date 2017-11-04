@@ -16,6 +16,15 @@ warden_name = "<unknown>"
 remotewardens = {} #name: Connection
 workerpools = {} #id: WorkerPool
 
+def loadJob(jobModuleName):
+    try:
+        mod   = __import__(jobModuleName)
+        jobCl = getattr(mod, jobModuleName)
+        #difference btwn import error & load error
+        return jobCl
+    except: 
+        return None
+
 def connectWarden(name, adrr):
     if(nethandler == None):
         print("Nethandler not set")
