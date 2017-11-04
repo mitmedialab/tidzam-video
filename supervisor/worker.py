@@ -35,7 +35,7 @@ _DEBUG_LEVEL = 1
 _DEBUG_DICT  = {0:"Minimum", 1: "Supervisor only", 2: "Worker status", 3: "Worker deep state"}
 def debug(msg, level = 1, err= False):
     stream = sys.stderr if err else sys.stdout
-
+    msg    = "[ERROR] "+msg if err else "[INFO] "+msg
     if(level <= _DEBUG_LEVEL):
         stream.write(msg+"\n")
         stream.flush()
@@ -296,7 +296,7 @@ class WorkerPool(object):
                 try:
                     worker.start()
                 except OSError: #occurs when shutting down
-                    print(self.name+": process start failed, mgmt will stop\nPlease stop the pool properly", file==sys.stderr)
+                    print(self.name+": process start failed, mgmt will stop\nPlease stop the pool properly", file=sys.stderr)
                     return
 
                 self.workers[worker.pid] = worker
@@ -409,50 +409,7 @@ class WorkerPool(object):
         self.workersManagementThread.start()
 
 
-###############################################################
-################### TESTS AND EXAMPLES ########################
-###############################################################
-
-def fakeFunc(arr):
-    #return ( (np.random.normal(size=3), np.random.normal(size=3), np.random.normal(size=3)), np.random.normal(size=3), np.random.normal(size=3))
-
-    return np.random.normal(size=2)
-
-def reception(data):
-    #sleep(0.01)
-    return np.abs(data)
-
-def recep(data):
-    #sleep(0.1)
-    return data*2
-
-def afficher(data):
-    print(data)
-
-
-##########################################################
-################# Supervisor starter #####################
-##########################################################
 if __name__ == "__main__":
-    atexit.register(handleExit)
-    print("============================================================")
-    print("Starting TidCam supervisor (pid="+str(os.getpid())+")")
-    print("The debug level is "+str(_DEBUG_LEVEL)+ " ("+_DEBUG_DICT[_DEBUG_LEVEL]+")")
-    print("============================================================")
+   pass
 
 
-    inp = WorkerPool("InputPool")
-    rec = WorkerPool("ReceptionPool",  function=reception)
-    dep = WorkerPool("2ndReceptor",  function=recep)
-    prt = WorkerPool("Printer", function=afficher)
-
-    inp.plug(rec)
-    rec.plug(dep)
-    dep.plug(prt)
-
-    #pow.addJob(Job(fakeFunc, None).setMonopole())
-
-    for i in range(100):
-        inp.addJob(Job(fakeFunc, np.random.normal(size=3)  ))
-
-    sleep(4)

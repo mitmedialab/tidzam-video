@@ -9,6 +9,9 @@ import json
 
 from threading import Thread
 import time
+import hashlib
+
+import numpy as np
 
 ######## CONSTANTS DEFINITION ###############
 PORT = 55555
@@ -32,6 +35,34 @@ PACKET_TYPE_WORKER_POOL_STATUS  = 6
 PACKET_TYPE_WARDEN_CONFIG       = 7
 #PACKET_TYPE_JOB_FILE = 8
 
+'''
+Create a Packet holding the image provided as numpy.ndarray
+'''
+def createImagePacket(npImg):
+    p = Packet()
+    p.setType(PACKET_TYPE_DATA) # ?
+    p["img"]   = True
+    p["shape"] = npImg.shape
+    p["checksum"] = hashlib.sha1(npImg).hexdigest()
+    p.binObj = npImg.tobytes()
+    
+    return p
+    
+'''
+Read the given packet and returns the 
+'''
+def readImagePacket(pck):
+    if(not pck["img"]):
+        return None
+    
+    img = np.frombuffer(pck.binObj, dtype=np.uint8)
+    img = img.reshape(pck["shape"])
+    
+    if(hashlib.sha1(img) != pck["checksum"]):
+        raise ValueError("Error in transmission: checksums do not match")
+    
+    return img
+    
 
 class NetworkHandler:
     '''
@@ -146,7 +177,7 @@ class Packet:
 
     BIN_READ_MAX = 524288
 
-    BINARY_DATA_LENGTH_TAG = "binDataLength"
+    BINARY_DATA_LENGTH_TAG = "binLen"
     PACKET_TYPE = "type"
 
     RESERVED_NAMES = [BINARY_DATA_LENGTH_TAG, PACKET_TYPE]
@@ -184,20 +215,20 @@ class Packet:
         return self.data[self.PACKET_TYPE]
 
     def read(self, txtChan, binChan):
-
         j = txtChan.readline()
 
         self.data = json.loads(j)
 
         binSize = int(self.data[self.BINARY_DATA_LENGTH_TAG])
         if(binSize > 0):
-           self._readBinObject(binChan, binSize)
+            self._readBinObject(binChan, binSize)
 
 
     def _readBinObject(self, binChan, binSize):
-        b = b''
+        b = b'' 
         r = 0
-        print("[NETWORK] Reading bin object "+str(binSize))
+        
+        print("[NETWORK] Reading bin object of "+str(binSize)+" bytes")
         bufSize = binSize if BIN_RECV_FULL else self.BIN_READ_MAX
 
         while(r < binSize):
@@ -205,7 +236,6 @@ class Packet:
 
             b += a
             r += len(a)
-            #print(r)
 
         self.binObj = b
 
@@ -243,11 +273,11 @@ class Connection:
         self.addr    = so.getpeername()
 
         self.txtChan = self.sockObj.makefile(mode="rw", buffering = -1,   encoding="utf-8") #the command text channel
-        self.dataChan= self.sockObj.makefile(mode="rwb", buffering = 0) #the binary data channel
+        self.dataChan= self.sockObj.makefile(mode="rwb", buffering = 0)                     #the binary data channel
 
         print("[NETWORK] Created Connection SELF <-> "+str(self.addr))
 
-        self.callback(NATURE_CONNECTION_OPEN, self)
+        self.callback(NATURE_CONNECTION_OPEN, None, conn = self)
         self.isRunning = True
         self._startManagementThread()
 
@@ -264,7 +294,6 @@ class Connection:
 
 
     def _mgmTgt(self):
-
         while(self.isRunning):
             try:
 
@@ -274,12 +303,13 @@ class Connection:
                 self.callback(p.getType(), p)
             except Exception as e:
                 if(not self.isRunning):
-                    return
+                    break
                 traceback.print_exc()
-                r = self.callback(NATURE_ERROR, e)
+                r = self.callback(NATURE_ERROR, e, conn = self)
                 if(not r is None and r):
-                    return
-
+                    break
+                
+        self.callback(NATURE_CONNECTION_CLOSED, None, conn = self)
 
     def _receive(self):
         '''
