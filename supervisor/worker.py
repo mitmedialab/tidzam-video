@@ -1,8 +1,7 @@
 '''
- ====================================================================
- Main file for the Supervisor part of the TidCam Project
- The Supervisor manages the workers for streamers and the ROI generator
- ====================================================================
+ 
+ Manages the WorkerPool
+ 
  @author: WIN32GG
  '''
  
@@ -14,35 +13,29 @@ from multiprocessing import Value
 import os
 from queue import Empty
 from queue import Full
+import time
 import sys
 from threading import Thread
 import threading
 from time import sleep
 import traceback
-
 import numpy as np
-from supervisor import network
 
 #from tensorflow.python.client import device_lib
-
 
 
 """
     DEBUG OUTPUT HANDLING
 """
 #debug level 0,1,2,3 the higher, the depper debug
-_DEBUG_LEVEL = 1
-_DEBUG_DICT  = {0:"Minimum", 1: "Supervisor only", 2: "Worker status", 3: "Worker deep state"}
+_DEBUG_LEVEL = 3
+_DEBUG_DICT  = {0:"Minimum", 1: "Warden only", 2: "Workers status", 3: "Everything"}
 def debug(msg, level = 1, err= False):
     stream = sys.stderr if err else sys.stdout
     msg    = "[ERROR] "+msg if err else "[INFO] "+msg
     if(level <= _DEBUG_LEVEL):
         stream.write(msg+"\n")
         stream.flush()
-
-def handleExit():
-    WorkerPool.shutdownAll()
-
 
 
 """
@@ -61,17 +54,15 @@ class SupervisedProcessStream():
     def flush(self):
         self.old_std.flush()
 
-
 """
     Process called by the supervisor with exception handling and custom std outputs
 """
 class SupervisedProcess(Process):
 
     def __init__(self, errQ):
-        super().__init__() #init super class
+        super(SupervisedProcess, self).__init__() #init super class
         self.daemon = True
-        self.errQ = errQ
-
+        self.errQ   = errQ
 
     def run(self):
         try:
@@ -92,7 +83,6 @@ class SupervisedProcess(Process):
 
     def handleError(self, err):
         infos = (self.pid, err[0])
-
         self.errQ.put_nowait(infos)
 
 """
@@ -104,7 +94,7 @@ class Job(object):
 
     def __init__(self):
         self.shouldExit = False
-        debug("Loaded Job "+str(self), 2)
+        debug("Loaded Job: "+str(self), 2)
 
     def setup(self):
         return;
@@ -114,9 +104,12 @@ class Job(object):
 
     def destroy(self):
         return
-
+    
+    def requireData(self):
+        return False
+    
     def __str__(self, *args, **kwargs):
-        return "Job Object "+ str(self.__class__.__name__)
+        return "Job Object: "+ str(self.__class__.__name__)
 
 """
     Worker implementation with a specific dataQueue
@@ -124,13 +117,16 @@ class Job(object):
 """
 class Worker(SupervisedProcess):
 
-    def __init__(self, name, job, errQ, dtaQ, calQ):
-        super().__init__(errQ)
+    def __init__(self, name, jobc, errQ, dtaQ, calQ):
+        super(Worker, self).__init__(errQ)
         self.id = name
-        self.job  = job
+        self.jobClass  = jobc
         self.dataQueue = dtaQ     #the input data
         self.callBackQueue = calQ #where the results are put
         self.isRunning = Value('i', 1)
+        
+    def __str__(self, *args, **kwargs):
+        return "Worker: id="+self.id+" job="+str(self.jobClass)+" running="+str(self.isRunning.value)
 
     #get awaiting data
     def pullData(self):
@@ -144,19 +140,24 @@ class Worker(SupervisedProcess):
 
     def doWork(self):
         debug("Starting worker", level= 3)
+        self.job = self.jobClass.__new__(self.jobClass)
+        self.job.__init__()
 
         self.job.setup()
-        while self.isRunning.value:
+        debug("Executing job "+str(self.job), level = 2)
+        while self.isRunning.value and not self.job.shouldExit:
             data = self.pullData()
-            if(data != None):
-                debug("Data: "+str(data), level= 3) #Early debug
-                debug("Executing job "+self.job.name, level = 2)
-                r = self.job.loop(data)
-                if(type(r) != type(None) and self.callBackQueue != None):
-                    self.callBackQueue.put(r)
+            if(data == None and self.job.requireData()):
+                break
+            
+            debug("Data: "+str(data), level= 3) #Early debug
+            
+            r = self.job.loop(data)
+            if(type(r) != type(None) and self.callBackQueue != None):
+                self.callBackQueue.put(r)
 
-
-        #print("exiting worker normally")
+        self.stop()
+        print("exiting worker normally")
 
     def stop(self):
         self.job.destroy()
@@ -168,11 +169,12 @@ class RemoteWorkerPool:
         self.identifier = identifier
         self.connection = conn
         
-    def feedData(self, data):
-        debug("Feeding data to remote WP: "+str(self.connection))
-        pck = network.Packet()
-        pck.setType(network.PACKET_TYPE_DATA)
-        pck["who"] = self.identifier
+        
+    def feedData(self, data): #usable with nparray
+        debug("[NETWORK] Feeding data to remote WP: "+str(self.connection))
+        pck = network.createImagePacket(data)
+        pck["target"] = self.identifier
+        self.conn.send(pck)
     
     @property
     def runing(self):
@@ -215,8 +217,7 @@ class WorkerPool(object):
         self.dataQueue               = Queue() # the data to be distributed
         self.resultQueue             = Queue()
         self.maxWorkers              = maxWorkers
-        
-        
+              
         self.workersManagementThread = None
         self.running                 = True
 
@@ -237,10 +238,7 @@ class WorkerPool(object):
 
     def feedData(self, data):
         self.checkPoolState()
-        if(self.defaultFunction == None):
-            raise ValueError("Default function is null")
-
-        self.addJob(Job(self.defaultFunction, data))
+        self.dataQueue.put(data)
 
     def shutdown(self):
         debug(self.name+": stopping")
@@ -265,7 +263,7 @@ class WorkerPool(object):
             return None
 
     def __str__(self, *args, **kwargs):
-        return "WorkerPool: "+self.name
+        return "WorkerPool: "+self.name+" job is "+self.jobClass.__name__+" "+str(len(self.workers))+" active workers"
 
     def _getWorkerNumber(self, avbl):
         i = 1
@@ -278,9 +276,9 @@ class WorkerPool(object):
     def _manageWorkers(self):
         avbl = {} #worker pid -> worker number
         if(self.autoWorkers):
-            debug(self.name+" started with auto worker count")
+            debug("[WORKERPOOL] "+self.name+" started with auto worker count")
         else:
-            debug(self.name+" started with "+str(self.workersAmount)+" workers")
+            debug("[WORKERPOOL] "+self.name+" started with "+str(self.workersAmount)+" workers")
 
         while self.running and threading.main_thread().isAlive(): #if the program is exiting (ie main tread has died) we should not start new workers
 
@@ -288,21 +286,20 @@ class WorkerPool(object):
             while len(self.workers) < self.workersAmount and threading.main_thread().isAlive():
                 number = self._getWorkerNumber(avbl)
                 
-                #Job creation
-                job = self.jobClass.__new__(self.jobClass)
-                job.__init__()
-                worker = Worker(self.name+" Worker-"+str(number), job, self.errorQueue, self.dataQueue, self.resultQueue)
-            
+                w = Worker(self.name+" Worker-"+str(number), self.jobClass, self.errorQueue, self.dataQueue, self.resultQueue)
+                
                 try:
-                    worker.start()
-                except OSError: #occurs when shutting down
-                    print(self.name+": process start failed, mgmt will stop\nPlease stop the pool properly", file=sys.stderr)
+                    w.start()
+                except: #this is considered fatal
+                    print(self.name+": process start failed, mgmt will stop\nPlease stop the pool properly")
                     return
 
-                self.workers[worker.pid] = worker
-                avbl[worker.pid] = number
-                debug(self.name+": worker started: pid="+str(worker.pid), level=2)
-
+                self.workers[w.pid] = w
+                avbl[w.pid] = number
+                debug(self.name+": worker "+w.name+" started: pid="+str(w.pid), level=2)
+                
+                sleep(1) #Workers takes about 1 sec to start
+                
             if(self.autoWorkers):
                 #increase or decrease the amount of workers regarding the jobQueue
                 if(not self.dataQueue.empty()):
@@ -342,11 +339,7 @@ class WorkerPool(object):
 
         self.workersManagementThread = None
 
-    #Plug this Pool to another pool of workers
-    #directing the output data to the input of the parameter pool
-    #=====================================================================================================
-    # NOTE THAT: The default function must be set on otherPool, having defaultFunction to None is an Error
-    #=====================================================================================================
+    #Plug this Pool to another pool of workers, local or remote
     def plug(self, target):
         if(target == None):
             raise ValueError("Cannot plug to None")
@@ -355,7 +348,7 @@ class WorkerPool(object):
         if(self._plugged.__contains__(target)):
             raise ValueError("Already plugged")
 
-        debug(self.name+": --> "+target.name)
+        debug(self.name+": --> "+target.identifier)
         self._plugged.append(target)
         self._startTransferThread()
 
@@ -364,7 +357,6 @@ class WorkerPool(object):
             val = self.resultQueue.get() #we don't care if blocked
             for plugged in self._plugged:
                 try:
-                    
                     if(plugged.running):
                         plugged.feedData(val)
                 except Exception as e:
@@ -395,11 +387,6 @@ class WorkerPool(object):
 
         return True
 
-    #wait until the jobQueue is empty, can have a 0.001 sec delay
-    def join(self):
-        while not self.jobQueue.empty():
-            sleep(0.001)                 #if not, --> cpu overload
-
     def _startManagementThread(self):
         if(self.workersManagementThread != None):
             raise ValueError("Mgm thread already started")
@@ -410,6 +397,6 @@ class WorkerPool(object):
 
 
 if __name__ == "__main__":
-   pass
+    print("Don't launch this, launch the warden")
 
-
+   

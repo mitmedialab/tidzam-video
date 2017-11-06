@@ -15,13 +15,14 @@ import numpy as np
 
 ######## CONSTANTS DEFINITION ###############
 PORT = 55555
-SUPERVISOR_BROADCAST = 55556
+UDP_HANDSHAKE_PORT = 56756
 
 BIN_RECV_FULL = True
 
 OBJECT_TYPE_SUPERVISOR = 1
 OBJECT_TYPE_WARDEN     = 2
 
+NATURE_UDP_HANDSHAKE            = -4
 NATURE_CONNECTION_OPEN          = -3
 NATURE_CONNECTION_CLOSED        = -2
 NATURE_ERROR                    = -1
@@ -33,7 +34,8 @@ PACKET_TYPE_DATA                = 4
 PACKET_TYPE_WORKER_POOL_CONFIG  = 5
 PACKET_TYPE_WORKER_POOL_STATUS  = 6
 PACKET_TYPE_WARDEN_CONFIG       = 7
-#PACKET_TYPE_JOB_FILE = 8
+PACKET_TYPE_AUTH                = 8
+#PACKET_TYPE_JOB_FILE 
 
 '''
 Create a Packet holding the image provided as numpy.ndarray
@@ -43,6 +45,7 @@ def createImagePacket(npImg):
     p.setType(PACKET_TYPE_DATA) # ?
     p["img"]   = True
     p["shape"] = npImg.shape
+    p["dtype"] = npImg.dtype.name
     p["checksum"] = hashlib.sha1(npImg).hexdigest()
     p.binObj = npImg.tobytes()
     
@@ -55,7 +58,7 @@ def readImagePacket(pck):
     if(not pck["img"]):
         return None
     
-    img = np.frombuffer(pck.binObj, dtype=np.uint8)
+    img = np.frombuffer(pck.binObj, dtype=pck["dtype"])
     img = img.reshape(pck["shape"])
     
     if(hashlib.sha1(img) != pck["checksum"]):
@@ -63,6 +66,23 @@ def readImagePacket(pck):
     
     return img
     
+    
+def listenForUDPHandshake(nh):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(('', UDP_HANDSHAKE_PORT))
+   
+    print("[NETWORK] Listening for UDP Handshakes")
+   
+    while True:
+        data, addr = sock.recvfrom(1024)
+        print("[NETWORK] UDP Handshake from "+str(addr))
+        nh.callbackFunc(NATURE_UDP_HANDSHAKE, (addr, data.decode()))
+        
+def sendUDPHandshake(wid):
+    print("[NETWORK] Broadcasting UDP Handshake")
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    sock.sendto(wid.encode(encoding='utf_8', errors='strict'), ("<broadcast>", UDP_HANDSHAKE_PORT))
 
 class NetworkHandler:
     '''
@@ -71,8 +91,9 @@ class NetworkHandler:
 
     '''
 
-    def __init__(self, objectType, callbackFunction):
+    def __init__(self, objectType, identifier, callbackFunction):
         self.objType = objectType
+        self.identifier = identifier
         self.callbackFunc = callbackFunction
 
         self.mgmThread = None
@@ -83,19 +104,21 @@ class NetworkHandler:
         tgt = None
 
         if(objectType == OBJECT_TYPE_SUPERVISOR):
-            '''
-            do the udp broadcast
-            '''
-            tgt = self._listen
+           
             print("[NETWORK] Object type is SUPERVISOR")
-            pass
+            print("[NETWORK] Awaiting connection order")
 
         if(objectType == OBJECT_TYPE_WARDEN):
             '''
-            UDP supervisor broadcast listen (later) or direct connection request from user
+            UDP  broadcast then listen direct connection request from user
             '''
+            
             print("[NETWORK] Object type is WARDEN")
-            pass
+            sendUDPHandshake(identifier)
+            Thread(target = listenForUDPHandshake, args=[self]).start()
+            
+            tgt = self._listen
+            
 
         self._startManagementThread(tgt)
 
@@ -119,7 +142,7 @@ class NetworkHandler:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((addr, PORT))
 
-        c = Connection(s, self.callbackFunc)
+        c = Connection(s, self.callbackFunc, self)
 
         self.connections.append(c)
         return c
@@ -153,7 +176,7 @@ class NetworkHandler:
                 self.connections.remove(c)
 
     def _initConn(self, cr):
-        self.connections.append(Connection(cr, self.callbackFunc))
+        self.connections.append(Connection(cr, self.callbackFunc, self))
 
 
     def _startManagementThread(self, tgt):
@@ -187,7 +210,7 @@ class Packet:
         self.binObj = None
 
     def __str__(self):
-        return json.dumps(self.data) + " binHash = "+ (0 if self.binObj == None else hash(self.binObj))
+        return json.dumps(self.data) + " binHash = "+ ("0" if self.binObj == None else str(hash(self.binObj)))
 
     def __getitem__(self, key):
         if(not key in self.data):
@@ -201,10 +224,10 @@ class Packet:
         self.data[key] = value
 
     def _validateType(self, typ):
-        if(not typ is int):
+        if(not type(typ) == type(42)):
             raise ValueError("Invalid packet type, use constants")
 
-        if(type < -1 or type > 4):
+        if(typ < -1 or typ > 8):
             raise ValueError("Invalid packet type, use constants")
 
     def setType(self, typ):
@@ -264,11 +287,12 @@ class Connection:
     Manages a connection
     '''
 
-    def __init__(self, so, callbackFunc):
+    def __init__(self, so, callbackFunc, nh):
         '''
         Initialize the Connection pbject with the raw output of sockt.accept() (socket, adrr)
         '''
         self.callback = callbackFunc
+        self.nethandler = nh
         self.sockObj = so
         self.addr    = so.getpeername()
 
@@ -280,9 +304,18 @@ class Connection:
         self.callback(NATURE_CONNECTION_OPEN, None, conn = self)
         self.isRunning = True
         self._startManagementThread()
+        self.sendHandshake(nh.objType, nh.identifier)
+        
+        
+    def sendHandshake(self, objType, iden):
+        pck = Packet()
+        pck.setType(PACKET_TYPE_AUTH)
+        pck["objType"] = objType
+        pck["id"] = iden
+        self.send(pck)
 
-    def stop(self):
-        pass
+    def __str__(self):
+        return "SELF <-> "+str(self.addr) # +" f="+str(self.sockObj.fileno())
 
     def isclosed(self):
         return self.sockObj._closed
@@ -300,17 +333,19 @@ class Connection:
                 p = Packet()
                 p.read(self.txtChan, self.dataChan)
 
-                self.callback(p.getType(), p)
+                self.callback(p.getType(), p, conn = self)
             except Exception as e:
                 if(not self.isRunning):
                     break
+                #if(_DEBUG_LEVEL > 1):
                 traceback.print_exc()
                 r = self.callback(NATURE_ERROR, e, conn = self)
                 if(not r is None and r):
                     break
-                
+        
+        self.sockObj.close()        
         self.callback(NATURE_CONNECTION_CLOSED, None, conn = self)
-
+        
     def _receive(self):
         '''
         Waits until a packet of data is received
