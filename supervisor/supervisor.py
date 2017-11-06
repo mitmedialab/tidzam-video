@@ -4,6 +4,8 @@ Control application
 @author: WIN32GG
 '''
 
+import __main__ 
+import sys
 import network
 from network import Packet
 import socket
@@ -13,6 +15,10 @@ import numpy as np
 from worker import _DEBUG_LEVEL
 
 warden = None
+
+
+class ScriptFatalError(BaseException):
+    pass
 
 class Warden:
     '''
@@ -48,7 +54,7 @@ class Warden:
         
         self.connection.send(pck)
         
-    def plugWP(self, sourceWP, targetWP, remoteWarden):
+    def plugWP(self, sourceWP, remoteWarden, targetWP):
         pck = Packet()
         pck.setType(network.PACKET_TYPE_PLUG_REQUEST)
         '''
@@ -90,31 +96,60 @@ def supervisorNetworkCallback(nature, data, conn = None):
     
     if(nature == network.NATURE_ERROR):
         return True
+
+def execScript(path):
+    try:
+        f = open(path, "r")
+    except FileNotFoundError:
+        print("Script file not found: "+str(path))
+        return
     
-def handleCommand(cmd):
+    for line in f:
+        try:
+            execReq(line)
+        except BaseException as e:
+            #TODO catch fatal
+            print("Error @: "+line)
+
+
+def cmd_plug(sourceWP, targetWP, targetWarden = "self"):
+    warden.plugWP(sourceWP, targetWarden, targetWP)
+
+def cmd_stats():
+    warden.requestStats()
+    
+def cmd_stop():
+    warden.stop()
+    
+def cmd_cwp(name, jobName, maxWorkers = 8, workerAmount = 0):
+    warden.startWP(name, jobName, maxWorkers, workerAmount)
+    
+def cmd_data(wpName, *args):
+    data = ""
+    for i in args:
+        data += i+" "
+    warden.feedData(wpName, data)
+  
+def execReq(cmd):
     global warden
     
-    if(cmd == "stats"):
-        warden.requestStats()
+    c = cmd.split(" ")
+    a = getattr(__main__, "cmd_"+c[0])
+    a(*c[1:])
     
-    a = cmd.split(" ")
-    if(a[0] == "create_wp"):
-        warden.startWP(a[1], a[2])
         
-    if(a[0] == "connect"):
-        pass
-    
-    if(a[0] == "data"):
-        warden.feedData(a[1], a[2])
-        
-    if(a[0] == "plug"):
-        warden.plugWP(a[1], a[2], a[3])
+def handleCommand(cmd):
+    try:
+        execReq(cmd)
+    except BaseException:
+        print("Error in command", file = sys.stderr)
+
 
 if(__name__ == "__main__"):
     #create supervisor server
     nt = network.NetworkHandler(network.OBJECT_TYPE_SUPERVISOR, "supervisor", supervisorNetworkCallback, )        
         
-    c = nt.connect("127.0.0.1")
+    c = nt.connect("10.1.68.171")
     warden = Warden(c)
     
     while True:

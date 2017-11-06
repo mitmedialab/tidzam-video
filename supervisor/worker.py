@@ -163,12 +163,20 @@ class Worker(SupervisedProcess):
         self.job.destroy()
         self.isRunning.value = 0
 
+'''
+Represents a WorkerPool ona remote Warden
+'''
 class RemoteWorkerPool:
     
     def __init__(self, identifier, conn):
         self.identifier = identifier
         self.connection = conn
         
+    def __str__(self):
+        return "RemoteWorkerPool: "+str(self.identifier)+"@"+str(self.connection.nh.identifier)
+        
+    def __repr__(self):
+        return str(self.__str__())
         
     def feedData(self, data): #usable with nparray
         debug("[NETWORK] Feeding data to remote WP: "+str(self.connection))
@@ -262,8 +270,11 @@ class WorkerPool(object):
         except Empty: #Queue is empty, no big deal
             return None
 
-    def __str__(self, *args, **kwargs):
-        return "WorkerPool: "+self.name+" job is "+self.jobClass.__name__+" "+str(len(self.workers))+" active workers"
+    def __str__(self):
+        return "WorkerPool: "+self.name+" job="+self.jobClass.__name__+" "+str(len(self.workers))+" active workers"
+
+    def __repr__(self):
+        return str(self.__str__())
 
     def _getWorkerNumber(self, avbl):
         i = 1

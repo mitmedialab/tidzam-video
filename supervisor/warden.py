@@ -27,12 +27,11 @@ from worker import RemoteWorkerPool
 from builtins import issubclass
 
 
-
 nethandler = None
 supervisorConnection = None # A warden can only be connected to one supervisor, the reference is kept here
 warden_name = None
 remotewardens = {} #name: Connection
-workerpools = {} #id: WorkerPool
+workerpools = {} #id: WorkerPool | RemoteWorkerPool
 
 def handleExit():
     return 
@@ -43,8 +42,19 @@ def setAutoName():
     if(warden_name != None):
         return
     
-    warden_name = hashlib.sha1(str(random.random()).encode()).hexdigest()[:8]
-    debug("[WARDEN] This warden name was automatically set to: "+str(warden_name))
+    if(os.path.isfile("wid")):
+        mod = "read"
+        f = open("wid", "r")
+        warden_name = f.read()
+        f.close()
+    else:
+        mod = "set to"
+        warden_name = hashlib.sha1(str(random.random()).encode()).hexdigest()[:8]
+        f = open("wid", "w")
+        f.write(warden_name)
+        f.close()
+        
+    debug("[WARDEN] This warden name was automatically "+mod+": "+str(warden_name))
     
 
 def loadJob(jobModuleName):
@@ -120,8 +130,8 @@ def wardenNetworkCallback(nature, data, conn = None):
         pck = network.Packet()
         pck.setType(network.PACKET_TYPE_WARDEN_STATS)
         pck["name"] = warden_name
-        pck["wp"]   = len(WorkerPool.pools)
-        pck["warden"] = len(remotewardens)
+        pck["wp"]   = str(workerpools)
+        pck["warden"] = str(remotewardens)
         
         conn.send(pck)
         return
@@ -188,7 +198,7 @@ def wardenNetworkCallback(nature, data, conn = None):
         remoteWP  = data["destinationWP"] #the id of the destination worker, remote or local
         remoteWPW = data["remoteWarden"] #the warden holding the workerpool
         
-        debug("[WARDEN] Plug request: "+str(localWP)+" --> "+str(remoteWP), level = 2)
+        debug("[WARDEN] Plug request: "+str(localWP)+" --> "+str(remoteWP)+"@"+str(remoteWP), level = 2)
         
         if(not remoteWPW in remotewardens):
             debug("[WARDEN] Remote Warden not found ", level = 0, err = True)
@@ -200,8 +210,12 @@ def wardenNetworkCallback(nature, data, conn = None):
             sendStatusPacket(conn, "WP_NOT_FOUND", network.PACKET_TYPE_PLUG_ANSWER)
             return
         
-        if(not remoteWPW is "self" and not remoteWP in workerpools):            
-            workerpools[remoteWP] = remotewardens[remoteWPW]
+        if(not remoteWPW is "self" and not remoteWP in workerpools):      
+            debug("[WARDEN] Local WP not found ", level = 0, err = True)
+            sendStatusPacket(conn, "WP_NOT_FOUND", network.PACKET_TYPE_PLUG_ANSWER)
+            return
+        
+        #workerpools[remoteWP] = remotewardens[remoteWPW]
             
         workerpools[localWP].plug(workerpools[remoteWP])
         
@@ -303,7 +317,7 @@ def runCmdThread():
 if(__name__ == "__main__"):
     startupWarden()    
     #runCmdThread()
-    
+   
     while True:
         sleep(1)
      

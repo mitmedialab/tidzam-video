@@ -288,9 +288,7 @@ class Connection:
     '''
 
     def __init__(self, so, callbackFunc, nh):
-        '''
-        Initialize the Connection pbject with the raw output of sockt.accept() (socket, adrr)
-        '''
+        
         self.callback = callbackFunc
         self.nethandler = nh
         self.sockObj = so
@@ -315,7 +313,10 @@ class Connection:
         self.send(pck)
 
     def __str__(self):
-        return "SELF <-> "+str(self.addr) # +" f="+str(self.sockObj.fileno())
+        return str(self.addr) # +" f="+str(self.sockObj.fileno())
+
+    def __repr__(self):
+        return str(self.__str__())
 
     def isclosed(self):
         return self.sockObj._closed
@@ -370,5 +371,9 @@ class Connection:
 
 
     def close(self):
+        self.sockObj.shutdown(socket.SHUT_RDWR)
         self.sockObj.close()
         print("[NETWORK] Closing Connection to "+str(self.addr))
+
+if(__name__ == "__main__"):
+    print("Thid file should not be launched directly")
