@@ -1,22 +1,30 @@
 # Dependencies
-import urllib.request
+import sys
+sys.path.append("label_verifier")
+
+import urllib
 import numpy as np
 import tensorflow as tf
 import os
 import inception
 from multiprocessing.dummy import Pool as ThreadPool
+from tqdm import tqdm
 
 # Download the image
 def download_image(url, path):
 	try:
-		urllib.request.urlretrieve(url, path)
+		urllib.urlretrieve(url, path)
 	except:
 		print('[Error] Failed to download the image ...')
 
 # Load the inception model
-def load_inception():
+def load_inception(gpu=False):
 	inception.maybe_download()
-	model = inception.Inception()
+	if gpu:
+		config = tf.ConfigProto(device_count = {'GPU': 0})
+		model = inception.Inception(config)
+	else:
+		model = inception.Inception()
 	return model
 
 # Classify an image
@@ -52,8 +60,8 @@ def validate_labels(possible_labels):
 	validation_set = []
 	for label in possible_labels:
 		for label_set in Labels:
-			if(label['label'] in label_set['set'] and not label_set['label'] in validation_set):
-				validation_set.append(label_set['label'])
+			if(label['label'] in label_set['set'] and not label_set['label'] in validation_set and label['score'] > 0.2):
+				validation_set.append(label_set['label'])	
 	return validation_set
 
 # Print infos
@@ -68,7 +76,8 @@ def infos():
 
 # Batches pipeline
 def pipeline(model, image, x, y, z):
-	possible_labels = inception.classify(model, image = image)
+	var = model.classify(image = image)
+	possible_labels = model.print_scores(var, k=10)
 	labels = validate_labels(possible_labels)
 	return labels, x, y, z
 
@@ -76,13 +85,18 @@ def batch_label_matching(model, batch):
 	pool = ThreadPool()
 	
 	results = [[[[] for x in range(len(batch[z][y]))] for y in range(len(batch[z]))] for z in range(len(batch))]
+	
 	n = sum([len(batch[z]) * len(batch[z][0]) for z in range(len(batch))])
 	
-	indexes = [[[(x, y, z) for x in range(len(batch[z][y]))] for y in range(len(batch[z]))] for z in range(len(batch))]
-
+	indexes = [(x, y, z) for z in range(len(batch)) for y in range(len(batch[z])) for x in range(len(batch[z][y]))]
+	
 	threads = [pool.apply_async(pipeline, args=(
 		model, batch[index[2]][index[1]][index[0]], index[0], index[1], index[2])) for index in indexes]
 
-	for thread in threads:
+	for thread in tqdm(threads):
 		labels, x, y, z = thread.get()
 		results[z][y][x] = labels
+
+
+
+	return results
