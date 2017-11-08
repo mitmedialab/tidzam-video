@@ -12,6 +12,7 @@ import time
 import hashlib
 
 import numpy as np
+from worker import _DEBUG_LEVEL
 
 ######## CONSTANTS DEFINITION ###############
 PORT = 55555
@@ -42,7 +43,7 @@ Create a Packet holding the image provided as numpy.ndarray
 '''
 def createImagePacket(npImg):
     p = Packet()
-    p.setType(PACKET_TYPE_DATA) # ?
+    p.setType(PACKET_TYPE_DATA) 
     p["img"]   = True
     p["shape"] = npImg.shape
     p["dtype"] = npImg.dtype.name
@@ -59,10 +60,18 @@ def readImagePacket(pck):
         return None
     
     img = np.frombuffer(pck.binObj, dtype=pck["dtype"])
-    img = img.reshape(pck["shape"])
-    
-    if(hashlib.sha1(img) != pck["checksum"]):
+
+    #print(hashlib.sha1(img).hexdigest()+" "+pck["checksum"])
+    chk = hashlib.sha1(img).hexdigest()
+    if(_DEBUG_LEVEL == 3):
+        print("Check = "+str(chk))
+        
+    if(chk != pck["checksum"]):
         raise ValueError("Error in transmission: checksums do not match")
+    if(_DEBUG_LEVEL == 3):
+        print("Checksum pass")
+    
+    img = img.reshape(pck["shape"])
     
     return img
     
@@ -125,7 +134,6 @@ class NetworkHandler:
 
     def stop(self):
         self.isRunning = False
-        self.mgmThread.stop()
 
     def broadcast(self, pck):
         self._cleanConnList()
@@ -173,6 +181,7 @@ class NetworkHandler:
     def _cleanConnList(self):
         for c in self.connections:
             if(c.isclosed()):
+                c.stop()
                 self.connections.remove(c)
 
     def _initConn(self, cr):
@@ -238,8 +247,10 @@ class Packet:
         return self.data[self.PACKET_TYPE]
 
     def read(self, txtChan, binChan):
-        j = txtChan.readline()
-
+        #j = txtChan.readline() #OLD method
+        l = int.from_bytes(binChan.read(8), 'big')
+        j = binChan.read(l).decode(encoding = 'utf-8')        
+        
         self.data = json.loads(j)
 
         binSize = int(self.data[self.BINARY_DATA_LENGTH_TAG])
@@ -255,12 +266,17 @@ class Packet:
         bufSize = binSize if BIN_RECV_FULL else self.BIN_READ_MAX
 
         while(r < binSize):
+            if(len(b) + bufSize > binSize):
+                bufSize = binSize - len(b)
+            
             a = binChan.read(bufSize)
 
             b += a
             r += len(a)
 
         self.binObj = b
+        
+        print("------ "+str(len(b))+ " for "+str(binSize))
 
     def send(self, txtChan, binChan):
         if(not self.binObj is None and not isinstance(self.binObj, bytes)):
@@ -268,18 +284,32 @@ class Packet:
 
         if(self.binObj != None):
             self.data[self.BINARY_DATA_LENGTH_TAG] = len(self.binObj)
-
-        #jObj = json.dumps(self.data)
-        #log obj?
-
+            
+        if(_DEBUG_LEVEL == 3):
+            print("[DEBUG] OUT: "+str(self))
+            
         s = json.dumps(self.data)+"\n"
+        
+        #NEW SENDING METHOD
+        b = b''
+        msgb = s.encode(encoding = 'utf-8')
+        b += len(msgb).to_bytes(8, 'big')
+        b += msgb
+        if(self.binObj != None):
+            b += self.binObj
+        if(_DEBUG_LEVEL == 3):
+            print("[DEBUG] Total packet size is "+str(len(b))+" bytes")
+        binChan.write(b)
+        binChan.flush()
+        return
+    
+        #OLD sending method        
         txtChan.write(s)
         txtChan.flush()
 
         if(not self.binObj is None):
             binChan.write(self.binObj)
             binChan.flush()
-
 
 
 class Connection:
@@ -317,6 +347,9 @@ class Connection:
 
     def __repr__(self):
         return str(self.__str__())
+    
+    def toJSON(self):
+        return str(self)
 
     def isclosed(self):
         return self.sockObj._closed
@@ -362,6 +395,7 @@ class Connection:
         Sends the given Packet on this connection's data channel
         Also sends the requested data on the binary channel
         '''
+    
         try:
             pck.send(self.txtChan, self.dataChan)
 

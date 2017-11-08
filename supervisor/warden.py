@@ -17,6 +17,7 @@ from threading import Thread
 import numpy as np
 from time import sleep
 import hashlib
+import json
 import random
 from worker import WorkerPool
 from worker import _DEBUG_DICT
@@ -25,16 +26,43 @@ from worker import debug
 import worker
 from worker import RemoteWorkerPool
 from builtins import issubclass
+from json import JSONEncoder
 
 
 nethandler = None
 supervisorConnection = None # A warden can only be connected to one supervisor, the reference is kept here
 warden_name = None
 remotewardens = {} #name: Connection
-workerpools = {} #id: WorkerPool | RemoteWorkerPool
+workerpools = {
+        'self': {}
+    } #id: WorkerPool | RemoteWorkerPool
+
 
 def handleExit():
-    return 
+    nethandler.stop()
+    
+def sendWardenStats(conn):
+    pck = network.Packet()
+    pck.setType(network.PACKET_TYPE_WARDEN_STATS)
+    pck["name"] = warden_name
+    pck["wp"]   = json.dumps(workerpools, default = jsonCustom)
+    pck["warden"] = json.dumps(remotewardens, default = jsonCustom)
+    conn.send(pck)    
+
+def broadcastStats():
+    global remotewardens
+    
+    for wid in remotewardens:
+        sendWardenStats(remotewardens[wid])
+        
+
+def getWorkerPools(wid="self"):
+    global workerpools
+    
+    if(not wid in workerpools):
+        return None
+    return workerpools[wid]
+    
 
 def setAutoName():
     global warden_name
@@ -84,11 +112,26 @@ def connectWarden(name, adrr):
     remotewardens[name] = c
     return True
 
+def requestWardenInfo(wid):
+    global remotewardens
+    
+    conn = remotewardens[wid]
+    if(conn == None):
+        debug("[WARDEN] Unknown remote warden: "+wid, 0, True)
+        return
+    
+    pck = network.Packet()
+    pck.setType(network.PACKET_TYPE_WARDEN_STATS)
+    conn.send(pck)
+    
 def sendStatusPacket(conn, sts, typ):
     pck = network.Packet()
     pck.setType(typ)
     pck["status"] = sts
     conn.send(pck)
+
+def jsonCustom(obj):
+    return obj.toJSON()
 
 '''
 Main network function, called when a packet is received, or when an event append on a connection
@@ -118,6 +161,21 @@ def wardenNetworkCallback(nature, data, conn = None):
         if(supervisorConnection == conn):
             debug("Supervisor connection closed")
             supervisorConnection = None
+            return
+        
+        wid = None
+        for w in remotewardens:
+            if(remotewardens[w] == conn):
+                wid = w
+                break
+            
+        if(wid == None):
+            debug("[WARDEN] Aborted warden connection", 3)
+            return
+            
+        del remotewardens[wid]
+        del workerpools[wid]
+         
         return
     
     if(nature == network.NATURE_UDP_HANDSHAKE): #another warden just went online        
@@ -126,14 +184,24 @@ def wardenNetworkCallback(nature, data, conn = None):
             debug("Failed!", err = True)
         return
     
-    if(nature == network.PACKET_TYPE_WARDEN_STATS): #request for stats        
-        pck = network.Packet()
-        pck.setType(network.PACKET_TYPE_WARDEN_STATS)
-        pck["name"] = warden_name
-        pck["wp"]   = str(workerpools)
-        pck["warden"] = str(remotewardens)
+    if(nature == network.PACKET_TYPE_WARDEN_STATS): #request for stats or remote warden stats info
+        if(data["name"] == None):
+            #request      
+            debug("[WARDEN] Stats request from "+str(conn))
+            sendWardenStats(conn)
         
-        conn.send(pck)
+        else:
+            #warden stats info
+            wid = data["name"]
+            rwps = getWorkerPools(wid)
+            
+            debug("[WARDEN] Got stats from "+str(wid))
+            wardens = json.loads(data["wp"])['self'] #we only want the workers on the remote
+            print(str(wardens))
+            rwps.clear() #we clean before updating            
+            for w in wardens: 
+                rwps[wardens[w]['name']] = worker.RemoteWorkerPool(wardens[w]['name'], conn, wid)
+            
         return
     
     if(nature == network.PACKET_TYPE_AUTH): #sent right after connection
@@ -152,15 +220,17 @@ def wardenNetworkCallback(nature, data, conn = None):
 
         elif(typ == network.OBJECT_TYPE_WARDEN):
             wid  = data["id"]
+            rwps = getWorkerPools(wid)                  
+                
             if(not wid in remotewardens):
                 remotewardens[wid] = conn
                 debug("[WARDEN] Accepted Warden: "+str(wid), 1)
-                '''debug("[WARDEN] Remote warden "+str(wid)+" was not expected, closing", 0, True)
-                conn.close()'''
-                return
+            else:
+                debug("[WARDEN] Got "+str(wid)+" answer")
+                
+            workerpools[wid] = {}
         
-            debug("[WARDEN] Got "+str(wid)+" answer")
-        
+            requestWardenInfo(wid)      
         return
     
     if(nature == network.PACKET_TYPE_WARDEN_CONFIG): #supervisor can force connection to a warden outside LAN
@@ -181,16 +251,20 @@ def wardenNetworkCallback(nature, data, conn = None):
     
     if(nature == network.PACKET_TYPE_DATA): #data for a wp
         targetWorker = data["target"] #the WP pool id
-        if(not targetWorker in workerpools):
+        wps = getWorkerPools() #local WPs
+        
+        try:
+            img = network.readImagePacket(data)
+        except ValueError:
+            debug("[WARDEN] Checksums don't match", 0, True)
+            return
+        
+        if(not targetWorker in wps):
             debug("[WARDEN] WP id unknown: "+str(targetWorker), level = 0, err = True)
             return
-        if(isinstance(workerpools[targetWorker], RemoteWorkerPool)):
-            debug("[WARDEN] Cannot feed remote worker", 0, True)
-            return
-                
-        img = network.readImagePacket(data)
+        
         debug("[WARDEN] Got data for WP "+targetWorker, 2)
-        workerpools[targetWorker].feedData(img if img != None else data["data"]) #pass image or byte directly
+        wps[targetWorker].feedData(img if not type(img) == type(None) else data["data"]) #pass image or byte directly
         return
     
     if(nature == network.PACKET_TYPE_PLUG_REQUEST): #request to plug a wp to another
@@ -200,28 +274,28 @@ def wardenNetworkCallback(nature, data, conn = None):
         
         debug("[WARDEN] Plug request: "+str(localWP)+" --> "+str(remoteWP)+"@"+str(remoteWP), level = 2)
         
-        if(not remoteWPW in remotewardens):
+        lwps = getWorkerPools()          #local  worker pools
+        rwps = getWorkerPools(remoteWPW) #remote worker pools
+        
+        if(rwps == None):
             debug("[WARDEN] Remote Warden not found ", level = 0, err = True)
             sendStatusPacket(conn, "REMOTE_NOT_FOUND", network.PACKET_TYPE_PLUG_ANSWER)
             return
         
-        if(not localWP in workerpools):
+        if(not localWP in lwps):
             debug("[WARDEN] Local WP not found ", level = 0, err = True)
             sendStatusPacket(conn, "WP_NOT_FOUND", network.PACKET_TYPE_PLUG_ANSWER)
             return
         
-        if(not remoteWPW is "self" and not remoteWP in workerpools):      
-            debug("[WARDEN] Local WP not found ", level = 0, err = True)
+        if(not remoteWP in rwps):
+            debug("[WARDEN] Remote WP not found", level = 0, err = True)
             sendStatusPacket(conn, "WP_NOT_FOUND", network.PACKET_TYPE_PLUG_ANSWER)
             return
-        
-        #workerpools[remoteWP] = remotewardens[remoteWPW]
-            
-        workerpools[localWP].plug(workerpools[remoteWP])
+    
+        lwps[localWP].plug(rwps[remoteWP])
         
         #send ok
-        sendStatusPacket(conn, "OK", network.PACKET_TYPE_PLUG_ANSWER)
-        
+        sendStatusPacket(conn, "OK", network.PACKET_TYPE_PLUG_ANSWER)       
         return        
     
     if(nature == network.PACKET_TYPE_WORKER_POOL_CONFIG): #manage wp
@@ -230,7 +304,9 @@ def wardenNetworkCallback(nature, data, conn = None):
         if(data["action"] == "create"):
             #Workerpool creation
             debug("[WARDEN] Requested WP creation: "+str(wid), 1)
-            if(wid in workerpools):
+            lwps = getWorkerPools()
+            
+            if(wid in lwps):
                 sendStatusPacket(conn, "ID_IN_USE", network.PACKET_TYPE_WORKER_POOL_STATUS)
                 debug("[WARDEN] WP ID already in use", 0, True)
                 return
@@ -247,15 +323,16 @@ def wardenNetworkCallback(nature, data, conn = None):
                 debug("[WARDEN] Loaded JobClass: "+str(j.__name__), 2)
                 
                 w = WorkerPool(wid, j, wa, mw)  
-                workerpools[wid] = w
+                lwps[wid] = w
             except:
                 debug("[WARDEN] Error setting up WP", 0, True)
                 sendStatusPacket(conn, "ERR", network.PACKET_TYPE_WORKER_POOL_STATUS)
                 return #send error
             
             #TODO send ok
+            debug("[WARDEN] Created WorkerPool: "+wid, 0)
             sendStatusPacket(conn, "OK", network.PACKET_TYPE_WORKER_POOL_STATUS)
-            return
+            
             
         if(data["action"] == "remove"):
             #Workerpool deletion
@@ -266,14 +343,17 @@ def wardenNetworkCallback(nature, data, conn = None):
                 
             w.shutdown()
             del workerpools[wid]
-            
         
+    
         if(data["action"] == "config"):
             #Workerpool edition
             pass
         
-        print("Invalid action for wp cfg "+str(data["action"]))
+        broadcastStats()   
         return
+        
+    print("Invalid action for wp cfg "+str(data["action"]))
+    return
     
 
 def handleCommand(cmd):
@@ -293,7 +373,7 @@ def startupWarden():
     atexit.register(handleExit)
     print("============================================================")
     print("Starting TidCam WARDEN (pid="+str(os.getpid())+")")
-    print("The debug level is "+str(_DEBUG_LEVEL)+ " ("+_DEBUG_DICT[_DEBUG_LEVEL]+")")
+    print("The log level is "+str(_DEBUG_LEVEL)+ " ("+_DEBUG_DICT[_DEBUG_LEVEL]+")")
     print("============================================================")
     setAutoName()
     nethandler = network.NetworkHandler(network.OBJECT_TYPE_WARDEN, warden_name, wardenNetworkCallback)
@@ -303,6 +383,7 @@ def _cmdExec():
     while True:
         inp  = input()
         handleCommand(inp)
+          
 
 '''
 The input is main thread is considered a and of program and prevents workers from spawning
@@ -318,7 +399,7 @@ if(__name__ == "__main__"):
     startupWarden()    
     #runCmdThread()
    
-    while True:
+    while nethandler.isRunning:
         sleep(1)
      
         

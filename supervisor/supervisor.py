@@ -12,7 +12,11 @@ import socket
 from time import sleep
 import io
 import numpy as np
+import json
+import random
+import numpy as np
 from worker import _DEBUG_LEVEL
+
 
 warden = None
 
@@ -89,6 +93,9 @@ def supervisorNetworkCallback(nature, data, conn = None):
         pass
     
     if(nature == network.PACKET_TYPE_WARDEN_STATS):
+        wp = json.loads(data["wp"])
+        for w in wp:
+            print(str(w))
         pass
     
     if(nature == network.PACKET_TYPE_WORKER_POOL_STATUS):
@@ -130,6 +137,14 @@ def cmd_data(wpName, *args):
         data += i+" "
     warden.feedData(wpName, data)
   
+def cmd_testbin():
+    global warden
+
+    arr = np.random.randint(0, 255, size=(1280,1024,3))
+    print(str(arr))
+    p = network.createImagePacket(arr)
+    warden.connection.send(p)
+
 def execReq(cmd):
     global warden
     
@@ -149,7 +164,7 @@ if(__name__ == "__main__"):
     #create supervisor server
     nt = network.NetworkHandler(network.OBJECT_TYPE_SUPERVISOR, "supervisor", supervisorNetworkCallback, )        
         
-    c = nt.connect("10.1.68.171")
+    c = nt.connect("127.0.0.1")
     warden = Warden(c)
     
     while True:

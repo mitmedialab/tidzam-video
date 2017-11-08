@@ -29,7 +29,7 @@ import numpy as np
 """
 #debug level 0,1,2,3 the higher, the depper debug
 _DEBUG_LEVEL = 3
-_DEBUG_DICT  = {0:"Minimum", 1: "Warden only", 2: "Workers status", 3: "Everything"}
+_DEBUG_DICT  = {0:"Minimum", 1: "Warden info", 2: "Workers status", 3: "Everything"}
 def debug(msg, level = 1, err= False):
     stream = sys.stderr if err else sys.stdout
     msg    = "[ERROR] "+msg if err else "[INFO] "+msg
@@ -110,6 +110,9 @@ class Job(object):
     
     def __str__(self, *args, **kwargs):
         return "Job Object: "+ str(self.__class__.__name__)
+    
+    def toJSON(self):
+        return {'name':str(self.__class__.__name__), 'requireData': self.requireData()}
 
 """
     Worker implementation with a specific dataQueue
@@ -147,14 +150,18 @@ class Worker(SupervisedProcess):
         debug("Executing job "+str(self.job), level = 2)
         while self.isRunning.value and not self.job.shouldExit:
             data = self.pullData()
-            if(data == None and self.job.requireData()):
+            if(type(data) == type(None) and self.job.requireData()):
                 break
             
             debug("Data: "+str(data), level= 3) #Early debug
             
             r = self.job.loop(data)
             if(type(r) != type(None) and self.callBackQueue != None):
-                self.callBackQueue.put(r)
+                try:
+                    self.callBackQueue.put(r)
+                except Full: #should never be raised anyway
+                    debug("[WORKERPOOL] Callback Queue is Full! Droping data")
+                
 
         self.stop()
         print("exiting worker normally")
@@ -168,21 +175,31 @@ Represents a WorkerPool ona remote Warden
 '''
 class RemoteWorkerPool:
     
-    def __init__(self, identifier, conn):
+    def __init__(self, identifier, conn, wid):
         self.identifier = identifier
         self.connection = conn
+        self.wid = wid
         
     def __str__(self):
         return "RemoteWorkerPool: "+str(self.identifier)+"@"+str(self.connection.nh.identifier)
         
     def __repr__(self):
         return str(self.__str__())
+    
+    def toJSON(self):
+        return {'name': self.identifier, 'remote': True, 'connection':str(self.connection)}
         
-    def feedData(self, data): #usable with nparray
-        debug("[NETWORK] Feeding data to remote WP: "+str(self.connection))
-        pck = network.createImagePacket(data)
+    def feedData(self, data): 
+        debug("[NETWORK] Feeding data to remote WP: "+str(self.connection), 3)
+        if(isinstance(data, np.ndarray)):
+            pck = network.createImagePacket(data)
+        else:
+            pck = network.Packet()
+            pck.setType(network.PACKET_TYPE_DATA)
+            pck["data"] = data
+            
         pck["target"] = self.identifier
-        self.conn.send(pck)
+        self.connection.send(pck)
     
     @property
     def runing(self):
@@ -222,8 +239,8 @@ class WorkerPool(object):
         self.workers                 = {}      # dictionnay of workers, key is the pid
         self.jobClass                = job     # job class (not instance) for this pool
         self.errorQueue              = Queue() # queue containing unhandled exceptions from subprocesses
-        self.dataQueue               = Queue() # the data to be distributed
-        self.resultQueue             = Queue()
+        self.dataQueue               = Queue(30) # the data to be distributed
+        self.resultQueue             = Queue(30)
         self.maxWorkers              = maxWorkers
               
         self.workersManagementThread = None
@@ -275,6 +292,9 @@ class WorkerPool(object):
 
     def __repr__(self):
         return str(self.__str__())
+    
+    def toJSON(self):
+        return {'name': self.name, 'remote': False, 'job':self.jobClass.__name__, 'workers': str(len(self.workers))}
 
     def _getWorkerNumber(self, avbl):
         i = 1
@@ -354,12 +374,17 @@ class WorkerPool(object):
     def plug(self, target):
         if(target == None):
             raise ValueError("Cannot plug to None")
-        if(type(target) != type(self) ): #or type(target) != type(self.plug)
-            raise ValueError("Can only plug to a WorkerPool ")
+        if(not isinstance(target, WorkerPool) and not isinstance(target, RemoteWorkerPool)):
+            raise ValueError("Canot plug to that")
         if(self._plugged.__contains__(target)):
             raise ValueError("Already plugged")
 
-        debug(self.name+": --> "+target.identifier)
+        if(isinstance(target, RemoteWorkerPool)):
+            msg = target.identifier+"@"+target.wid
+        else:
+            msg = target.identifier+"@self"    
+        
+        debug(self.name+": --> "+msg)
         self._plugged.append(target)
         self._startTransferThread()
 
@@ -368,8 +393,7 @@ class WorkerPool(object):
             val = self.resultQueue.get() #we don't care if blocked
             for plugged in self._plugged:
                 try:
-                    if(plugged.running):
-                        plugged.feedData(val)
+                    plugged.feedData(val)
                 except Exception as e:
                     debug(self.name+": exception while feeding data", err=True)
                     traceback.print_exc()
