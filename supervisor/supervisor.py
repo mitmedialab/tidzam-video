@@ -5,6 +5,7 @@ Control application
 '''
 
 import __main__ 
+from ast import literal_eval
 import traceback
 import sys
 import network
@@ -110,7 +111,7 @@ def network_warden_stats(data, conn = None):
     wa = json.loads(data["warden"])
     networkmap.clear()
     for wid in wa:
-        networkmap[wid] = wa[wid] 
+        networkmap[wid] = literal_eval(wa[wid])[0]
     
     return
 
@@ -164,13 +165,15 @@ def cmd_connect(addr="127.0.0.1", alias=None):
         print("[SUPERVISOR] Resolved alias name to "+str(addr))
         
     if(addr in networkmap):
-        addr = network[addr]
+        addr = networkmap[addr]
         print("[SUPERVISOR] Warden name resolved to "+str(addr))
         
     print("[SUPERVISOR] Connecting to: "+str(addr))
     warden = Warden(nethandler.connect(addr))
     
     warden.requestStats()
+    if(alias != None):
+        aliases[alias] = addr
     print("[SUPERVISOR] Connected")
 
 def cmd_call(script):
@@ -222,6 +225,7 @@ def handleCommand(cmd):
     except ScriptFatalError as e :
         raise e
     except BaseException:
+        traceback.print_exc()
         print("Error in command", file = sys.stderr)
 
 
