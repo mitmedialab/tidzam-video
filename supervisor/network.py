@@ -23,19 +23,19 @@ BIN_RECV_FULL = True
 OBJECT_TYPE_SUPERVISOR = 1
 OBJECT_TYPE_WARDEN     = 2
 
-NATURE_UDP_HANDSHAKE            = -4
-NATURE_CONNECTION_OPEN          = -3
-NATURE_CONNECTION_CLOSED        = -2
-NATURE_ERROR                    = -1
-PACKET_TYPE_UNDEFINED           = 0
-PACKET_TYPE_WARDEN_STATS        = 1
-PACKET_TYPE_PLUG_REQUEST        = 2
-PACKET_TYPE_PLUG_ANSWER         = 3
-PACKET_TYPE_DATA                = 4
-PACKET_TYPE_WORKER_POOL_CONFIG  = 5
-PACKET_TYPE_WORKER_POOL_STATUS  = 6
-PACKET_TYPE_WARDEN_CONFIG       = 7
-PACKET_TYPE_AUTH                = 8
+NATURE_UDP_HANDSHAKE            = "udp_handshake"
+NATURE_CONNECTION_OPEN          = "connection_open"
+NATURE_CONNECTION_CLOSED        = "connection_closed"
+NATURE_ERROR                    = "error"
+PACKET_TYPE_UNDEFINED           = "undefined"
+PACKET_TYPE_WARDEN_STATS        = "warden_stats"
+PACKET_TYPE_PLUG_REQUEST        = "plug_request"
+PACKET_TYPE_PLUG_ANSWER         = "plug_answer"
+PACKET_TYPE_DATA                = "data"
+PACKET_TYPE_WORKER_POOL_CONFIG  = "wp_config"
+PACKET_TYPE_WORKER_POOL_STATUS  = "wp_status"
+PACKET_TYPE_WARDEN_CONFIG       = "warden_config"
+PACKET_TYPE_AUTH                = "auth"
 #PACKET_TYPE_JOB_FILE 
 
 '''
@@ -233,11 +233,10 @@ class Packet:
         self.data[key] = value
 
     def _validateType(self, typ):
-        if(not type(typ) == type(42)):
+        if(not type(typ) == type("")):
             raise ValueError("Invalid packet type, use constants")
-
-        if(typ < -1 or typ > 8):
-            raise ValueError("Invalid packet type, use constants")
+        
+        #check type?
 
     def setType(self, typ):
         self._validateType(typ)

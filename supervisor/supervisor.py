@@ -5,6 +5,7 @@ Control application
 '''
 
 import __main__ 
+import traceback
 import sys
 import network
 from network import Packet
@@ -19,9 +20,12 @@ from worker import _DEBUG_LEVEL
 
 
 warden = None
+
 networkmap = {} # wid: addr
 aliases = {} # alias: wid
 nethandler = None
+workerpools = {}
+
 
 class ScriptFatalError(BaseException):
     pass
@@ -36,6 +40,7 @@ class Warden:
     
     def __init__(self, conn):
         self.connection = conn
+        self.wid = None
         
     def requestStats(self):
         pck = Packet()
@@ -83,29 +88,54 @@ class Warden:
         
         self.connection.send(pck)
     
+def network_auth(data, conn = None):
+    global warden
+    
+    wid = str(data["id"])
+    print("[SUPERVISOR] WID is "+wid)
+    warden.wid = wid
+    
+def network_plug_answer(data, conn = None):
+    return
+
+def network_warden_stats(data, conn = None):
+    global networkmap
+    
+    wid = data["name"]
+    
+    wp = json.loads(data["wp"])
+    for w in wp:
+        workerpools[w] = wid # if a workerpool with this name already exists it is rewritten
+        
+    wa = json.loads(data["warden"])
+    networkmap.clear()
+    for wid in wa:
+        networkmap[wid] = wa[wid] 
+    
+    return
+
+def network_wp_status(data, conn = None):
+    return
+
+
     
 def supervisorNetworkCallback(nature, data, conn = None):
     global _DEBUG_LEVEL
     
     if(_DEBUG_LEVEL == 3):
         print(str(nature)+ " "+ str(data) +" "+str(conn))
-
-
-    if(nature == network.PACKET_TYPE_PLUG_ANSWER):
-        pass
-    
-    if(nature == network.PACKET_TYPE_WARDEN_STATS):
-        wp = json.loads(data["wp"])
-        for w in wp:
-            print(str(w))
-        pass
-    
-    if(nature == network.PACKET_TYPE_WORKER_POOL_STATUS):
-        pass
     
     if(nature == network.NATURE_ERROR):
         return True
-
+    
+    try:
+        a = getattr(__main__, "network_"+str(nature))
+        a(data, conn)
+    except AttributeError:
+        print("NO SUCH NETWORK METHOD "+nature)    
+    except BaseException:
+        traceback.print_exc()
+    
 def execScript(path):
     try:
         f = open(path, "r")
@@ -143,6 +173,8 @@ def cmd_connect(addr="127.0.0.1", alias=None):
     warden.requestStats()
     print("[SUPERVISOR] Connected")
 
+def cmd_call(script):
+    execScript(script)
 
 def cmd_plug(sourceWP, targetWP, targetWarden = "self"):
     warden.plugWP(sourceWP, targetWarden, targetWP)
@@ -156,12 +188,11 @@ def cmd_stop():
 def cmd_cwp(name, jobName, maxWorkers = 8, workerAmount = 0):
     warden.startWP(name, jobName, maxWorkers, workerAmount)
     
-def cmd_stop():
+def cmd_disconnect():
     global warden
     
     if(warden != None):
         warden.connection.close()
-    exit(0)
     
 def cmd_data(wpName, *args):
     data = ""
