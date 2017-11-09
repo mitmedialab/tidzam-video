@@ -181,7 +181,7 @@ class NetworkHandler:
     def _cleanConnList(self):
         for c in self.connections:
             if(c.isclosed()):
-                c.stop()
+                c.close()
                 self.connections.remove(c)
 
     def _initConn(self, cr):
