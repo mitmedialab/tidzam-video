@@ -11,52 +11,50 @@ from PIL import ImageDraw
 def compress(i):
 	return ('%05d' % i) + '.jpg'
 
-def drawRects(top_left, bottom_right, chunk_pred, thickness):
+def drawRect(drw, top_left, bottom_right, thickness, color):
+	for i in range(thickness):
+			tl = top_left[0] - i , top_left[1] - i
+			br = bottom_right[0] + i , bottom_right[1] + i
+			drw.rectangle((tl,br), outline=color)
+
+def drawRects(drw, top_left, bottom_right, chunk_pred, thickness):
 	if "Swift" in chunk_pred:
-		for i in range(thickness):
-			tl = top_left[0] - i , top_left[1] - i
-			br = bottom_right[0] + i , bottom_right[1] + i
-			drw.rectangle((tl,br), outline=(0, 255, 0))
+		drawRect(drw, top_left, bottom_right, thickness, (0, 255, 0))
 	if "Blue Heron" in chunk_pred:
-		for i in range(thickness):
-			tl = top_left[0] - i , top_left[1] - i
-			br = bottom_right[0] + i , bottom_right[1] + i
-			drw.rectangle((tl,br), outline=(0, 0, 255))
+		drawRect(drw, top_left, bottom_right, thickness, (0, 0, 255))
 	if "Canadian Goose" in chunk_pred:
-		for i in range(thickness):
-			tl = top_left[0] - i , top_left[1] - i
-			br = bottom_right[0] + i , bottom_right[1] + i
-			drw.rectangle((tl,br), outline=(255, 0, 0))
+		drawRect(drw, top_left, bottom_right, thickness, (255, 0, 0))
 	if "Black Grouse" in chunk_pred:
-		pass
+		drawRect(drw, top_left, bottom_right, thickness, (255, 255, 0))
 	if "Bee Eater" in chunk_pred:
-		pass
+		drawRect(drw, top_left, bottom_right, thickness, (255, 0, 255))
 	if "Willow Ptarmigan" in chunk_pred:
-		pass
+		drawRect(drw, top_left, bottom_right, thickness, (0, 255, 255))
 	if "Cuckoo" in chunk_pred:
-		pass
+		drawRect(drw, top_left, bottom_right, thickness, (255, 255, 255))
 	if "Woodpecker" in chunk_pred:
-		pass
+		drawRect(drw, top_left, bottom_right, thickness, (0, 0, 0))
 	if "Quail" in chunk_pred:
-		pass
+		drawRect(drw, top_left, bottom_right, thickness, (255, 100, 100))
 	if "Pheasant" in chunk_pred:
-		pass
+		drawRect(drw, top_left, bottom_right, thickness, (100, 255, 100))
 	if "Chicken" in chunk_pred:
-		pass
+		drawRect(drw, top_left, bottom_right, thickness, (100, 100, 255))
 
-butcher = ib.ImageButcher(2.0, (0, 5))
-image_files = [compress(i) for i in range(155, 330)]
-model = inception.Model()
+def init():
+	butcher = ib.ImageButcher(2.0, (0, 5))
+	model = inception.Model()
+	return butcher, model
 
-for image_file in tqdm(image_files):
-	img = Image.open('Images/2/' + image_file)
+def image_boxed(array, model, butcher):
+	img = Image.fromarray(array)
 	res = (1080, 720)
 	img = img.resize(res, Image.BILINEAR)
 	img = np.array(img)
 
 	sizes, batch = butcher.get_batch(img)
 
-	# ---------------------------------------------------------------------
+	# ---------------------------MINI BATCH----------------------------------
 	patch_number = len(batch)
 	max_size = 400
 	n = patch_number // max_size
@@ -77,8 +75,8 @@ for image_file in tqdm(image_files):
 	top_k = np.array(top_k)
 
 	pred = utils.validate_labels(top_k)
-
 	#----------------------------------------------------------------------
+
 	image = Image.fromarray(img)
 	drw = ImageDraw.Draw(image)
 
@@ -87,6 +85,6 @@ for image_file in tqdm(image_files):
 		top_left, bottom_right = size.top_left, size.bottom_right
 		chunk_pred = pred[i]
 		if len(chunk_pred) > 0:
-			drawRects(top_left, bottom_right, chunk_pred, 3)
+			drawRects(drw, top_left, bottom_right, chunk_pred, 3)
 
-	image.save('Video/' + image_file)
+	return np.array(image)
