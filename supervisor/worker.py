@@ -329,7 +329,7 @@ class WorkerPool(object):
                 avbl[w.pid] = number
                 debug(self.name+": worker "+w.name+" started: pid="+str(w.pid), level=2)
                 
-                sleep(1) #Workers takes about 1 sec to start
+                #sleep(1) #Workers takes about 1 sec to start
                 
             if(self.autoWorkers):
                 #increase or decrease the amount of workers regarding the jobQueue
@@ -364,6 +364,7 @@ class WorkerPool(object):
 
 
             for pid in toRemove:
+                debug("[WORKERPOOL] "+str(pid)+" removed", 2)
                 del self.workers[pid]
                 del avbl[pid]
 
