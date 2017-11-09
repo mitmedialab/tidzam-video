@@ -5,6 +5,8 @@ Control application
 '''
 
 import __main__ 
+from ast import literal_eval
+import traceback
 import sys
 import network
 from network import Packet
@@ -20,6 +22,11 @@ from worker import _DEBUG_LEVEL
 
 warden = None
 
+networkmap = {} # wid: addr
+aliases = {} # alias: wid
+nethandler = None
+workerpools = {}
+
 
 class ScriptFatalError(BaseException):
     pass
@@ -34,6 +41,7 @@ class Warden:
     
     def __init__(self, conn):
         self.connection = conn
+        self.wid = None
         
     def requestStats(self):
         pck = Packet()
@@ -81,29 +89,54 @@ class Warden:
         
         self.connection.send(pck)
     
+def network_auth(data, conn = None):
+    global warden
+    
+    wid = str(data["id"])
+    print("[SUPERVISOR] WID is "+wid)
+    warden.wid = wid
+    
+def network_plug_answer(data, conn = None):
+    return
+
+def network_warden_stats(data, conn = None):
+    global networkmap
+    
+    wid = data["name"]
+    
+    wp = json.loads(data["wp"])
+    for w in wp:
+        workerpools[w] = wid # if a workerpool with this name already exists it is rewritten
+        
+    wa = json.loads(data["warden"])
+    networkmap.clear()
+    for wid in wa:
+        networkmap[wid] = literal_eval(wa[wid])[0]
+    
+    return
+
+def network_wp_status(data, conn = None):
+    return
+
+
     
 def supervisorNetworkCallback(nature, data, conn = None):
     global _DEBUG_LEVEL
     
     if(_DEBUG_LEVEL == 3):
         print(str(nature)+ " "+ str(data) +" "+str(conn))
-
-
-    if(nature == network.PACKET_TYPE_PLUG_ANSWER):
-        pass
-    
-    if(nature == network.PACKET_TYPE_WARDEN_STATS):
-        wp = json.loads(data["wp"])
-        for w in wp:
-            print(str(w))
-        pass
-    
-    if(nature == network.PACKET_TYPE_WORKER_POOL_STATUS):
-        pass
     
     if(nature == network.NATURE_ERROR):
         return True
-
+    
+    try:
+        a = getattr(__main__, "network_"+str(nature))
+        a(data, conn)
+    except AttributeError:
+        print("NO SUCH NETWORK METHOD "+nature)    
+    except BaseException:
+        traceback.print_exc()
+    
 def execScript(path):
     try:
         f = open(path, "r")
@@ -114,10 +147,37 @@ def execScript(path):
     for line in f:
         try:
             execReq(line)
+        except ScriptFatalError as fe:
+            print("Fatal Error occured, the script cannot continue")
+            return
         except BaseException as e:
-            #TODO catch fatal
             print("Error @: "+line)
 
+
+def cmd_connect(addr="127.0.0.1", alias=None):
+    global nethandler
+    global aliases
+    global networkmap
+    global warden
+    
+    if(addr in aliases):
+        addr = aliases[addr]
+        print("[SUPERVISOR] Resolved alias name to "+str(addr))
+        
+    if(addr in networkmap):
+        addr = networkmap[addr]
+        print("[SUPERVISOR] Warden name resolved to "+str(addr))
+        
+    print("[SUPERVISOR] Connecting to: "+str(addr))
+    warden = Warden(nethandler.connect(addr))
+    
+    warden.requestStats()
+    if(alias != None):
+        aliases[alias] = addr
+    print("[SUPERVISOR] Connected")
+
+def cmd_call(script):
+    execScript(script)
 
 def cmd_plug(sourceWP, targetWP, targetWarden = "self"):
     warden.plugWP(sourceWP, targetWarden, targetWP)
@@ -130,6 +190,12 @@ def cmd_stop():
     
 def cmd_cwp(name, jobName, maxWorkers = 8, workerAmount = 0):
     warden.startWP(name, jobName, maxWorkers, workerAmount)
+    
+def cmd_disconnect():
+    global warden
+    
+    if(warden != None):
+        warden.connection.close()
     
 def cmd_data(wpName, *args):
     data = ""
@@ -156,17 +222,19 @@ def execReq(cmd):
 def handleCommand(cmd):
     try:
         execReq(cmd)
+    except ScriptFatalError as e :
+        raise e
     except BaseException:
+        traceback.print_exc()
         print("Error in command", file = sys.stderr)
 
 
 if(__name__ == "__main__"):
-    #create supervisor server
-    nt = network.NetworkHandler(network.OBJECT_TYPE_SUPERVISOR, "supervisor", supervisorNetworkCallback, )        
-        
-    c = nt.connect("127.0.0.1")
-    warden = Warden(c)
+    print("============================")
+    print("Tid'zam Camera SUPERVISOR")
+    print("============================")
     
+    nethandler = network.NetworkHandler(network.OBJECT_TYPE_SUPERVISOR, "supervisor", supervisorNetworkCallback, )
     while True:
         inp = input(">>> ")
         handleCommand(inp)

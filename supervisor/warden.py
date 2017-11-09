@@ -11,6 +11,7 @@ import os
 import socket
 import sys
 import traceback
+import __main__
 
 import network
 from threading import Thread
@@ -352,7 +353,15 @@ def wardenNetworkCallback(nature, data, conn = None):
         broadcastStats()   
         return
         
-    print("Invalid action for wp cfg "+str(data["action"]))
+        
+    try:
+        a = getattr(__main__, "network_"+str(nature))
+        a(data, conn)
+    except AttributeError:
+        print("NO SUCH NETWORK METHOD "+nature)    
+    except BaseException:
+        traceback.print_exc()
+    
     return
     
 
