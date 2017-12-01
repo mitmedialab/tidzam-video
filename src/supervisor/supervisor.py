@@ -3,18 +3,21 @@ Created on 27 nov. 2017
 
 @author: WIN32GG
 '''
-import subprocess as sp
-import config
-from customlogging import debug
-from threading import Thread
-import socket
-import traceback
-import struct
-import os
-import network 
-import sys
 import json
-        
+import os
+import signal
+import socket
+from threading import Thread
+import traceback
+
+import config
+import config_checker
+from customlogging import debug
+import network 
+import subprocess as sp
+
+def suicide():
+    os.kill(os.getpid(), signal.SIGTERM)        
         
 class Supervisor():
     '''
@@ -25,13 +28,20 @@ class Supervisor():
         self.workers = {}
         self.running = True
         self.startSupervisorServer()
+        self.stopping = False
         
     def stop(self):
+        if(self.stopping):
+            return
+        self.stopping = True
+        
+        debug("[SUPERVISOR] Got HALT request, stopping...")
         self.running = False
         
         for proc in self.workers.values():
             proc.terminate()
-        exit(0)
+            
+        suicide()
     
     def startSupervisorServer(self):
         Thread(target=self._listenTarget).start()
@@ -80,53 +90,42 @@ class Supervisor():
             except:
                 debug("[SUPERVISOR] Closing client connection", 1, True)
                 traceback.print_exc()
+                break
                 
         sock.shutdown(socket.SHUT_RDWR)
         sock.close()
     
-    def startWorker(self, workerConfig):
-        Thread(target=self._workerManagementThreadTarget, args=(workerConfig,)).start()
-        
-    def _checkConfigSanity(self, cfg):
-        MANDATORY = ["port", "jobname"]
-        OPTIONAL  = ["workername", "debuglevel", "output", "jobdata"]
-        TOTAL = MANDATORY + OPTIONAL
-        
-        try:
-            j = json.loads(cfg)
-            
-            for k in j.keys():
-                if(not k in TOTAL):
-                    raise ValueError("Unknown parameter: "+str(k))
-                
-            for k in MANDATORY:
-                if(not k in j.keys()):
-                    raise ValueError("Missing mandatory parameter: "+str(k))
-        
-        except ValueError as ve: 
-            debug("Error in worker configuration: "+str(ve), 0, True)   
-            return False 
-        except json.JSONDecodeError:
-            debug("Error in worker configuration: The provided configuration is not valid", 0, True)
-            return False
-        except:
-            traceback.print_exc()
-            return False
-        
-        return True
-        
-        
-    def _workerManagementThreadTarget(self, workerConfig):
-        debug("[WORKER-MGM] Starting worker...")
-        if(not self._checkConfigSanity(workerConfig)):
+    def startWorker(self, workerConfig, name):
+        Thread(target=self._workerManagementThreadTarget, args=(workerConfig, name)).start()
+      
+    def handleConfigInput(self, workerConfig):
+        debug("[SUPERVISOR] Checking config...")
+        if(not config_checker.checkWorkerConfigSanity(workerConfig)):
             return
-        debug("[WORKER-MGM] Config is OK")
+        name = json.loads(workerConfig)['workername']
+        debug("[SUPERVISOR] Config is OK")
         
-        proc = sp.Popen([config.PYTHON_CMD, "worker.py"], stdin=sp.PIPE, encoding="utf-8")
-        self.workers[proc.pid] = proc
-        debug("[WORKER-MGM] Worker started with pid "+str(proc.pid))
-        proc.communicate(workerConfig)
-        debug("[WORKER-MGM] Worker "+str(proc.pid)+" exited with errcode "+str(proc.poll()))
+        if(name in self.workers):
+            debug("[SUPERVISOR] Worker found: "+name)
+            self._sendToWorker(name, workerConfig)
+        else:
+            self.startWorker(workerConfig, name)
+        
+    def _workerManagementThreadTarget(self, workerConfig, name):
+        debug("[WORKER-MGM] Starting worker process...")        
+        proc = sp.Popen([config.PYTHON_CMD, "worker.py"], stdin=sp.PIPE, encoding="utf-8", universal_newlines=True)
+        self.workers[name] = proc
+        debug("[WORKER-MGM] Worker "+name+" started with pid "+str(proc.pid))
+        self._sendToWorker(name, workerConfig)
+        
+        proc.wait()
+        debug("[WORKER-MGM] Worker "+name+" ("+str(proc.pid)+") exited with errcode "+str(proc.poll()))
+           
+    def _sendToWorker(self, wname, config):
+        debug("[SUPERVISOR] Sending config to worker")
+        proc = self.workers[wname]
+        proc.stdin.write(config+"\n")
+        proc.stdin.flush()
            
 if __name__ == '__main__':
     
@@ -134,13 +133,18 @@ if __name__ == '__main__':
     
     while(True):
         try:
-            l = input()
+            l = input().strip()
             if(sup._detectSpecialAction(l)): #refaire ça pour le stop²²    
                 continue
-            sup.startWorker(l)
+            sup.handleConfigInput(l)
+        except KeyboardInterrupt:
+            sup.stop()
+            
         except:
             if(not sup.running):
                 break
             traceback.print_exc()
+            
+        
                     
     

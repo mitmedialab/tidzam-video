@@ -13,12 +13,12 @@ from customlogging import debug
 import numpy as np
 
 
-def readString(self, fo):
+def readString(fo):
     header = struct.Struct("i")
-    l = header.unpack(fo.read(header))
+    l = header.unpack(fo.read(header.size))
     return fo.read(l).decode(encoding="utf-8")
     
-def sendString(self, fo, string):
+def sendString(fo, string):
     b = string.encode(encoding="utf-8")
     fo.write(struct.pack("i", len(b)))
     fo.write(b)

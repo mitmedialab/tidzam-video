@@ -1,0 +1,50 @@
+{
+  "supervisorport":55555,
+
+
+  "units": [
+    {
+      "name":"local",
+      "address":"127.0.0.1"
+    },
+
+    {
+      "name":"yliess",
+      "address":"10.1.68.109"
+    }
+
+  ],
+
+  "workers": {
+
+    "local": [
+
+      {
+      	"name" : "streamer",
+      	"port":	25223,
+      	"jobname": "streamerjob",
+      	"jobdata": "input.mp4",
+      	"debuglevel": 3,
+        "outputmethod":"duplicate",
+      	"output": [
+      		"boxer"
+      	]
+      }
+
+    ],
+
+    "yliess": [
+      {
+        "name" : "boxer",
+        "port":	25223,
+        "jobname": "boxerjob",
+        "debuglevel": 3
+      }
+
+    ]
+
+
+  }
+
+
+}
