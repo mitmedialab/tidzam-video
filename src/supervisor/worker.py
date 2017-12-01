@@ -24,13 +24,14 @@ import config_checker
 
 
 class SupervisedProcessStream():
-    def __init__(self, old_std):
+    def __init__(self, old_std, name):
         self.old_std=old_std
+        self.name = name
 
     def write(self, text):
         text = text.rstrip()
         if len(text) == 0: return
-        self.old_std.write("> pid "+str(os.getpid())+" : " + text + '\n')
+        self.old_std.write("["+str(self.name)+"] ("+str(os.getpid())+") : " + text + '\n')
 
     def flush(self):
         self.old_std.flush()
@@ -76,14 +77,17 @@ class Worker(object):
         suicide()
 
     def checkAction(self, config):
-        if("action" in config.keys()):
-            debug("Handling action: "+config['action'])
-            action = getattr(self, "action_"+config['action'])
-            action()
-            return True
+        try:
+            if("action" in config.keys()):
+                debug("Handling action: "+config['action'])
+                action = getattr(self, "action_"+config['action'])
+                action()
+                return True
+        except:
+            pass
         return False
 
-    def acion_halt(self):
+    def action_halt(self):
         self.stop()
 
     def loadJob(self, jobName):
@@ -112,7 +116,10 @@ class Worker(object):
             suicide()
 
     def updateWithDiff(self, config):
+        if(self.checkAction(config)):
+            return
         debug("[WORKER] Updating worker...")
+        
         #TODO
 
     def setupJobAndLaunch(self, data):
@@ -149,6 +156,7 @@ class Worker(object):
     def _listenTarget(self):
         try:
             server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             server.bind( ('', self.port))
             server.listen()
         except:
@@ -180,8 +188,12 @@ class Worker(object):
             self._closeSock(sock)
 
     def _closeSock(self, sock):
-        sock.shutdown(socket.SHUT_RDWR)
-        sock.close()
+        if(not sock._closed):
+            try:
+                sock.shutdown(socket.SHUT_RDWR)
+                sock.close()
+            except:
+                pass
 
     def _clientOutTarget(self):
         while(self.jobRunning.value or not self.outputQueue.empty()):
@@ -272,11 +284,12 @@ class Job(object):
         return False
 
 def setupWithJsonConfig(config):
-    #Worker setup
-    name = None
-    if("name" in config.keys()):
-        name = str(config["name"])
-        debug("Worker name is "+name)
+    #Worker setup    
+    name = str(config["workername"])
+    sys.stdout = SupervisedProcessStream(sys.stdout, name)
+    sys.stderr = SupervisedProcessStream(sys.stderr, name)
+    
+    debug("Worker name is "+name)
 
     port = int(config["port"])
     debug("Worker port is "+str(port))
@@ -288,7 +301,7 @@ def setupWithJsonConfig(config):
         debuglevel = int(config["debuglevel"])
         customlogging._DEBUG_LEVEL = debuglevel
 
-        print("Debug level is "+str(debuglevel)+" ("+str(customlogging._DEBUG_DICT[debuglevel])+")")
+        debug("Debug level is "+str(debuglevel)+" ("+str(customlogging._DEBUG_DICT[debuglevel])+")", 0)
 
     #Worker startup
     worker = Worker(port)
@@ -323,8 +336,7 @@ if __name__ == "__main__":
     worker = None
     import __main__
 
-    sys.stdout = SupervisedProcessStream(sys.stdout)
-    sys.stderr = SupervisedProcessStream(sys.stderr)
+    
 
     debug("Worker listening")
 

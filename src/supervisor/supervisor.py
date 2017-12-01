@@ -38,8 +38,12 @@ class Supervisor():
         debug("[SUPERVISOR] Got HALT request, stopping...")
         self.running = False
         
+        debug("[STOP] Stopping workers")
         for proc in self.workers.values():
             proc.terminate()
+            
+        debug("[STOP] Closing server")
+        self.server.close()
             
         suicide()
     
@@ -47,15 +51,13 @@ class Supervisor():
         Thread(target=self._listenTarget).start()
         
     def _listenTarget(self):
-        debug("[SUPERVISOR] Starting Supervisor Server")
+        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            
-            server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            server.bind(('', config.SUPERVISOR_PORT))
-            server.listen()
-            
+            self.server.bind(('', config.SUPERVISOR_PORT))
+            self.server.listen()
+            debug("[SUPERVISOR] Started Supervisor Server")
             while(self.running):
-                client, addr = server.accept()
+                client, addr = self.server.accept()
                 debug("[SUPERVISOR] Connection from "+str(addr))
                 
                 Thread(target=self._clientTarget, args=(client,)).start()
@@ -63,15 +65,20 @@ class Supervisor():
         except:
             debug("[SUPERVISOR] Supervisor Server Shutting down", 0, True)
             traceback.print_exc()
+            self.server.close()
         
     def _detectSpecialAction(self, cmd):
         
         try:
             cmd = json.loads(cmd)
-            if(cmd["action"] == "stop"):
+            if("workername" in cmd.keys()):
+                return False
+            
+            if(cmd["action"] == "halt"):
                 self.stop()
+                return True
                 
-            return True
+            return False
         except:
             #traceback.print_exc()#
             return False
@@ -120,6 +127,7 @@ class Supervisor():
         
         proc.wait()
         debug("[WORKER-MGM] Worker "+name+" ("+str(proc.pid)+") exited with errcode "+str(proc.poll()))
+        del self.workers[name]   
            
     def _sendToWorker(self, wname, config):
         debug("[SUPERVISOR] Sending config to worker")
@@ -130,12 +138,13 @@ class Supervisor():
 if __name__ == '__main__':
     
     sup = Supervisor()
-    
+    debug("[SUPERVISOR] Ready for input")
     while(True):
         try:
             l = input().strip()
-            if(sup._detectSpecialAction(l)): #refaire ça pour le stop²²    
+            if(sup._detectSpecialAction(l)):   
                 continue
+            
             sup.handleConfigInput(l)
         except KeyboardInterrupt:
             sup.stop()
