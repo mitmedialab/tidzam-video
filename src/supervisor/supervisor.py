@@ -9,6 +9,7 @@ import signal
 import socket
 from threading import Thread
 import traceback
+import struct
 
 import config
 import config_checker
@@ -88,17 +89,19 @@ class Supervisor():
         
         while(self.running):
             try:
-                j = json.loads(network.readString(chan))
+                j = network.readString(chan)
                 if(self._detectSpecialAction(j)):
                     continue
+                name = json.loads(j)['workername']
+                self.startWorker(j, name)
                 
-                self.startWorker(j)
-                
+            except struct.error:
+                break
             except:
-                debug("[SUPERVISOR] Closing client connection", 1, True)
                 traceback.print_exc()
                 break
-                
+        
+        debug("[SUPERVISOR] Closing client connection", 1, True)
         sock.shutdown(socket.SHUT_RDWR)
         sock.close()
     

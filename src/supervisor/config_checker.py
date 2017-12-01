@@ -8,10 +8,10 @@ import traceback
 from customlogging import debug
 
 def checkMasterConfigSanity(cfg):
-    return checkConfigSanity(cfg, ["workers", "units"], ["outputmethod", "refreshinterval", "supervisorport"])
+    return checkConfigSanity(cfg, ["workers", "units"], ["refreshinterval", "supervisorport"])
 
 def checkWorkerConfigSanity(cfg):
-    return checkConfigSanity(cfg,  ["port", "jobname", "workername"], ["debuglevel", "output", "jobdata", "action"])
+    return checkConfigSanity(cfg,  ["port", "jobname", "workername"], ["outputmethod", "debuglevel", "output", "jobdata", "action"])
 
 def checkConfigSanity(cfg, MANDATORY, OPTIONAL):
         TOTAL = MANDATORY + OPTIONAL
@@ -34,6 +34,7 @@ def checkConfigSanity(cfg, MANDATORY, OPTIONAL):
             debug("Error in configuration: The provided configuration is not valid", 0, True)
             return False
         except:
+            debug("Error when checking config sanity", 0, True)
             traceback.print_exc()
             return False
         

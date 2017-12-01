@@ -336,10 +336,7 @@ if __name__ == "__main__":
     worker = None
     import __main__
 
-    
-
     debug("Worker listening")
-
    
     run = True
 

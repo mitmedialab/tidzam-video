@@ -6,12 +6,9 @@
     {
       "name":"local",
       "address":"127.0.0.1"
-    },
-
-    {
-      "name":"yliess",
-      "address":"10.1.68.109"
     }
+
+
 
   ],
 
@@ -20,28 +17,30 @@
     "local": [
 
       {
-      	"name" : "streamer",
-      	"port":	25223,
-      	"jobname": "streamerjob",
-      	"jobdata": "input.mp4",
-      	"debuglevel": 3,
+        "workername" : "streamer",
+        "port":	25224,
+        "jobname": "generatenpjob",
+        "jobdata": "input.mp4",
+        "debuglevel": 3,
         "outputmethod":"duplicate",
-      	"output": [
-      		"boxer"
-      	]
-      }
+        "debuglevel": 2,
+        "output": [
+          "printer"
+        ]
+      },
 
-    ],
-
-    "yliess": [
       {
-        "name" : "boxer",
+        "workername" : "printer",
         "port":	25223,
-        "jobname": "boxerjob",
-        "debuglevel": 3
+        "jobname": "printjob",
+        "debuglevel": 2
       }
+
+
 
     ]
+
+
 
 
   }

@@ -3,6 +3,8 @@ Created on 29 nov. 2017
 
 @author: WIN32GG
 '''
+from time import sleep
+import network
 
 '''
 Master file to control all supervisors
@@ -21,11 +23,6 @@ from customlogging import _DEBUG_LEVEL
 from customlogging import debug
 
 
-class Master:
-    
-    def __init__(self):
-        self.supervisors = []
-        
 class RemoteSupervisor:
     
     def __init__(self, name, addr):
@@ -53,9 +50,11 @@ class RemoteSupervisor:
         
     def _connect(self):
         try:
+            
             sck = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sck.settimeout(2.5)
             sck.connect(self.addr)
+            debug("Connected")
             return sck
         except:
             if(_DEBUG_LEVEL >= 3):
@@ -66,8 +65,16 @@ class RemoteSupervisor:
         return re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", self.addr[0]) != None
     
     def pushWorker(self, workerObj):
-        pass #TODO
+        debug("Pushing worker config to "+self.name)
+        sock = self._connect()
+        chan = sock.makefile("rwb")
         
+        network.sendString(chan, json.dumps(workerObj))
+        
+        try:
+            self._close(sock)
+        except:
+            pass
         
 def loadConfig(cfg):
     debug("Master config sanity check...")
@@ -80,28 +87,29 @@ def loadConfig(cfg):
     rsup = loadUnits(objCfg['units'])
     
     debug("Creating worker sequence...")
-    workerSequence, workerSup = loadWorkerSequence(objCfg['workers'], rsup)
+    workerSequence, workerSup, workerByName = loadWorkerSequence(objCfg['workers'], rsup)
     
-    debug("ALL GOOD")
+    return (workerSequence, workerSup, workerByName)
         
 def loadUnits(units):
     
     rsup = {}
     
     for u in units:
-        debug("Testing RemoteSupervisor "+u['name'], 2)
-        if(u['name'] in rsup.keys()):
-            raise ValueError("Worker name "+str(u['name'])+" is already registred")
+        name = u['name']
+        debug("Testing RemoteSupervisor "+name, 2)
+        if(name in rsup.keys()):
+            raise ValueError("Worker name "+str(name)+" is already registred")
 
-        rs = RemoteSupervisor(u['name'], (u['address'], 55555))
+        rs = RemoteSupervisor(name, (u['address'], 55555))
         rs._test()
-        rsup[u['name']] = rs
-        debug("OK", 2)
+        rsup[name] = rs
+        debug("Supervisor "+name+": OK", 2)
 
     return rsup
 
 def checkWorkerConfig(cfg):
-    config_checker.checkWorkerConfigSanity(cfg)
+    return config_checker.checkWorkerConfigSanity(cfg)
 
 def loadWorkerSequence(workers, rsup):
     
@@ -109,9 +117,15 @@ def loadWorkerSequence(workers, rsup):
         if(currentWorker in seq):
             return
         
-        if("output" in currentWorker.keys()):
-            for out in workerDict[currentWorker]['output']:
+        if("output" in workerDict[currentWorker].keys()):
+            output = workerDict[currentWorker]['output']
+            for i in range(len(output)):
+                out = output[i]
                 buildWorkerSequence(seq, workerDict, out)
+                
+                trueOut = workerSuper[out].addr[0]+":"+str(workerDict[out]['port'])
+                debug("Resolved "+out+" to "+trueOut)
+                output[i] = trueOut
                 
         seq.append(currentWorker)
     
@@ -121,22 +135,30 @@ def loadWorkerSequence(workers, rsup):
     workerSequence = []
     
     for sup in workers.keys():
+        if(not sup in rsup):
+            raise ValueError("The requested unit is unknown: "+sup)
+        
         for worker in workers[sup]:
-            debug("Loading "+str(worker["workername"]))
-            checkWorkerConfig(json.dumps(worker))
+            
+            name = worker["workername"]
+            
+            debug("Loading: "+name)
+            if(not checkWorkerConfig(json.dumps(worker))):
+                raise ValueError("Unable to load config for worker: "+name)
+            
             if(worker["workername"] in workerByName):
-                raise ValueError("Duplicate for worker name "+str(worker["workername"]))
+                raise ValueError("Duplicate for worker name "+name)
     
-            workerByName[worker["workername"]] = worker
-            workerSuper[worker] = sup
+            workerByName[name] = worker
+            workerSuper[name] = rsup[sup]
 
-    debug("Got "+str(len(workerByName))+" workers to set up")
+    debug("Got "+str(len(workerByName))+" workers and "+str(len(rsup))+" supervisors")
     
     for w in workerByName.keys():
         buildWorkerSequence(workerSequence, workerByName, w)
 
     debug("Worker ignition sequence is "+str(workerSequence))
-    return (workerSequence, workerSuper)
+    return (workerSequence, workerSuper, workerByName)
 
 def read(fil):
     fd = open(fil, "r")
@@ -161,7 +183,19 @@ if __name__ == '__main__':
         cfg = input().strip()
     
     debug("Loading Config...")
-    loadConfig(cfg)
+    try:
+        workerSequence, workerSup, workerByName = loadConfig(cfg)
+        
+        for name in workerSequence:
+            w = workerByName[name]
+            
+            workerSup[name].pushWorker(w)
+        
+    except Exception as e:
+        debug("An exception occured when executing the config", 0, True)
+        debug(str(e), 0, True)
+        if(_DEBUG_LEVEL >= 3):
+            traceback.print_exc()
     
     
 

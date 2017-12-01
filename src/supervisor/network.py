@@ -15,7 +15,7 @@ import numpy as np
 
 def readString(fo):
     header = struct.Struct("i")
-    l = header.unpack(fo.read(header.size))
+    l = header.unpack(fo.read(header.size))[0]
     return fo.read(l).decode(encoding="utf-8")
     
 def sendString(fo, string):
