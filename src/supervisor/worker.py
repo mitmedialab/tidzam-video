@@ -158,18 +158,23 @@ class Worker(object):
             server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             server.bind( ('', self.port))
-            server.listen()
+            server.listen(4)
         except:
             traceback.print_exc()
             suicide()
             return
 
         self.server = server
-        while(self.jobRunning.value):
-            client, addr = server.accept()
-            if(client != None):
-                debug("Input from: "+str(addr), 1)
-                Thread(target=self._clientInTarget, args=(client,), daemon = True).start()
+        try:
+            while(self.jobRunning.value):
+                client, addr = server.accept()
+                if(client != None):
+                    debug("Input from: "+str(addr), 1)
+                    Thread(target=self._clientInTarget, args=(client,), daemon = True).start()
+        except:
+            if(not self.jobRunning.value):
+                return
+            traceback.print_exc()
 
 
     def _clientInTarget(self, sock):
@@ -210,7 +215,7 @@ class Worker(object):
                     if(_DEBUG_LEVEL == 3):
                         traceback.print_exc()
 
-                    debug("Incoming Connection was lost", 0, True)
+                    debug("Output Connection was lost", 0, True)
 
                     self._closeSock(sock)
                     self.outputs.remove(sock)
@@ -225,7 +230,7 @@ class Worker(object):
 
             binChan = sock.makefile("wb")
             self.outputs[sock] = binChan
-
+            debug("Plugged to "+str(addr))
         except:
             if(_DEBUG_LEVEL == 3):
                 traceback.print_exc()

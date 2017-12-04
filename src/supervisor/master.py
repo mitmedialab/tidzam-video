@@ -33,6 +33,9 @@ class RemoteSupervisor:
         if(not self._matchAdress()):
             raise ValueError("Invalid IP for unit "+self.name)
         
+        if(self.addr[0] == "127.0.0.1"):
+            raise ValueError("Cannot use loopback as an address")
+        
         if(testConnect and not self._testConnection()):
             raise ValueError("Unreacheable Supervisor for unit "+self.name)
     

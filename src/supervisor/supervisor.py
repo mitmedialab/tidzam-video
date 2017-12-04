@@ -55,7 +55,7 @@ class Supervisor():
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             self.server.bind(('', config.SUPERVISOR_PORT))
-            self.server.listen()
+            self.server.listen(4)
             debug("[SUPERVISOR] Started Supervisor Server")
             while(self.running):
                 client, addr = self.server.accept()
@@ -123,7 +123,7 @@ class Supervisor():
         
     def _workerManagementThreadTarget(self, workerConfig, name):
         debug("[WORKER-MGM] Starting worker process...")        
-        proc = sp.Popen([config.PYTHON_CMD, "worker.py"], stdin=sp.PIPE, encoding="utf-8", universal_newlines=True)
+        proc = sp.Popen([config.PYTHON_CMD, "worker.py"], stdin=sp.PIPE, universal_newlines=True)
         self.workers[name] = proc
         debug("[WORKER-MGM] Worker "+name+" started with pid "+str(proc.pid))
         self._sendToWorker(name, workerConfig)
