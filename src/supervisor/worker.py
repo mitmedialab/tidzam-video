@@ -1,5 +1,4 @@
 '''
-Created on 27 nov. 2017
 
 @author: WIN32GG
 '''
@@ -21,7 +20,8 @@ import customlogging
 import signal
 import config_checker
 
-
+OUTPUT_DUPLICATE = 0
+OUTPUT_DISTRIBUTE = 1
 
 class SupervisedProcessStream():
     def __init__(self, old_std, name):
@@ -55,6 +55,7 @@ class Worker(object):
         self.jobRunning = Value('b')
         self.jobRunning.value = False
         self.port = port
+        self.outputmethod = 0
         self.inputQueue = Queue(50)
         self.outputQueue = Queue(50)
         self.outputs = {}
@@ -266,7 +267,7 @@ class Worker(object):
         #self.jobRunning.value = False
         debug("Reached end of Launch target")
         self.stop()
-
+   
 
 class Job(object):
     '''

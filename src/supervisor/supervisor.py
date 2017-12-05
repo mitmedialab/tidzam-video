@@ -1,5 +1,4 @@
 '''
-Created on 27 nov. 2017
 
 @author: WIN32GG
 '''
@@ -18,6 +17,7 @@ import network
 import subprocess as sp
 
 def suicide():
+    debug("--> kill <--")
     os.kill(os.getpid(), signal.SIGTERM)        
         
 class Supervisor():
@@ -30,6 +30,7 @@ class Supervisor():
         self.running = True
         self.startSupervisorServer()
         self.stopping = False
+        self.workerConfig = {}
         
     def stop(self):
         if(self.stopping):
@@ -69,20 +70,22 @@ class Supervisor():
             self.server.close()
         
     def _detectSpecialAction(self, cmd):
-        
         try:
             cmd = json.loads(cmd)
             if("workername" in cmd.keys()):
-                return False
+                return None
             
             if(cmd["action"] == "halt"):
                 self.stop()
-                return True
+                return network.OK
+            
+            if(cmd['action'] == "status"):
+                return json.dumps(list(self.workerConfig.values()))
                 
-            return False
+            return "Action not found"
         except:
-            #traceback.print_exc()#
-            return False
+            traceback.print_exc()
+            return "Error in action"
         
     def _clientTarget(self, sock):
         chan = sock.makefile("rwb")
@@ -90,11 +93,20 @@ class Supervisor():
         while(self.running):
             try:
                 j = network.readString(chan)
-                if(self._detectSpecialAction(j)):
-                    continue
-                name = json.loads(j)['workername']
-                self.startWorker(j, name)
+                out = network.OK
                 
+                try:
+                    sa = self._detectSpecialAction(j)
+                
+                    if(sa != None):
+                        out = sa
+                    else:
+                        self.handleConfigInput(j)
+                    network.sendString(chan, out)
+                except Exception as e:
+                    network.sendString(chan, repr(e))
+                    raise e
+                    
             except struct.error:
                 break
             except:
@@ -114,6 +126,7 @@ class Supervisor():
             return
         name = json.loads(workerConfig)['workername']
         debug("[SUPERVISOR] Config is OK")
+    
         
         if(name in self.workers):
             debug("[SUPERVISOR] Worker found: "+name)
@@ -125,12 +138,14 @@ class Supervisor():
         debug("[WORKER-MGM] Starting worker process...")        
         proc = sp.Popen([config.PYTHON_CMD, "worker.py"], stdin=sp.PIPE, universal_newlines=True)
         self.workers[name] = proc
+        self.workerConfig[name] = workerConfig
         debug("[WORKER-MGM] Worker "+name+" started with pid "+str(proc.pid))
         self._sendToWorker(name, workerConfig)
         
         proc.wait()
         debug("[WORKER-MGM] Worker "+name+" ("+str(proc.pid)+") exited with errcode "+str(proc.poll()))
         del self.workers[name]   
+        del self.workerConfig[name]
            
     def _sendToWorker(self, wname, config):
         debug("[SUPERVISOR] Sending config to worker")
@@ -146,8 +161,7 @@ if __name__ == '__main__':
         try:
             l = input().strip()
             if(sup._detectSpecialAction(l)):   
-                continue
-            
+                continue            
             sup.handleConfigInput(l)
         except KeyboardInterrupt:
             sup.stop()

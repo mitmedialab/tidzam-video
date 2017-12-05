@@ -12,6 +12,7 @@ from customlogging import _DEBUG_LEVEL
 from customlogging import debug
 import numpy as np
 
+OK = "ok"
 
 def readString(fo):
     header = struct.Struct("i")

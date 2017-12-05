@@ -8,7 +8,7 @@ import traceback
 from customlogging import debug
 
 def checkMasterConfigSanity(cfg):
-    return checkConfigSanity(cfg, ["workers", "units"], ["refreshinterval", "supervisorport"])
+    return checkConfigSanity(cfg, ["units"], ["workers","action","refreshinterval", "supervisorport"])
 
 def checkWorkerConfigSanity(cfg):
     return checkConfigSanity(cfg,  ["port", "jobname", "workername"], ["outputmethod", "debuglevel", "output", "jobdata", "action"])

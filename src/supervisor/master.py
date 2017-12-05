@@ -1,5 +1,4 @@
 '''
-Created on 29 nov. 2017
 
 @author: WIN32GG
 '''
@@ -38,7 +37,7 @@ class RemoteSupervisor:
         
         if(testConnect and not self._testConnection()):
             raise ValueError("Unreacheable Supervisor for unit "+self.name)
-    
+        
     def _testConnection(self):
         s = self._connect()
         if(s == None):
@@ -57,7 +56,7 @@ class RemoteSupervisor:
             sck = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sck.settimeout(2.5)
             sck.connect(self.addr)
-            debug("Connected")
+            debug("Connected to "+str(self.addr))
             return sck
         except:
             if(_DEBUG_LEVEL >= 3):
@@ -67,19 +66,32 @@ class RemoteSupervisor:
     def _matchAdress(self):
         return re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", self.addr[0]) != None
     
-    def pushWorker(self, workerObj):
-        debug("Pushing worker config to "+self.name)
+  
+    def push(self, obj, throwOnError = True):
+        debug("Pushing to "+self.name)
         sock = self._connect()
         chan = sock.makefile("rwb")
         
-        network.sendString(chan, json.dumps(workerObj))
+        network.sendString(chan, json.dumps(obj))
+        debug("Awaiting reply...")
+        answ = network.readString(chan) or "SOCK_TIMEOUT"
         
         try:
             self._close(sock)
         except:
             pass
         
-def loadConfig(cfg):
+        if(answ != network.OK):
+            if(throwOnError):
+                debug("Push failure", 0, True)
+                debug("Refer to supervisor log for details", 0, True)
+                debug("Err was:"+answ,0 ,True)
+                return False
+            
+        debug("OK")
+        return answ
+
+def loadSupervisors(cfg):
     debug("Master config sanity check...")
     if(not config_checker.checkMasterConfigSanity(cfg)):
         return
@@ -87,12 +99,9 @@ def loadConfig(cfg):
     objCfg = json.loads(cfg)  
     
     debug("Loading Supervisors...")
-    rsup = loadUnits(objCfg['units'])
-    
-    debug("Creating worker sequence...")
-    workerSequence, workerSup, workerByName = loadWorkerSequence(objCfg['workers'], rsup)
-    
-    return (workerSequence, workerSup, workerByName)
+    return loadUnits(objCfg['units'])        
+        
+ 
         
 def loadUnits(units):
     
@@ -104,7 +113,7 @@ def loadUnits(units):
         if(name in rsup.keys()):
             raise ValueError("Worker name "+str(name)+" is already registred")
 
-        rs = RemoteSupervisor(name, (u['address'], 55555))
+        rs = RemoteSupervisor(name, (u['address'], 55555)) #TODO port handling
         rs._test()
         rsup[name] = rs
         debug("Supervisor "+name+": OK", 2)
@@ -113,8 +122,14 @@ def loadUnits(units):
 
 def checkWorkerConfig(cfg):
     return config_checker.checkWorkerConfigSanity(cfg)
+       
+def loadWorkerSequence(objCfg, rsup):
+    debug("Creating worker sequence...")
+    workerSequence, workerSup, workerByName = loadWorkerDistributionSequence(objCfg['workers'], rsup)
+    
+    return (workerSequence, workerSup, workerByName)
 
-def loadWorkerSequence(workers, rsup):
+def loadWorkerDistributionSequence(workers, rsup):
     
     def buildWorkerSequence(seq, workerDict, currentWorker):
         if(currentWorker in seq):
@@ -157,11 +172,34 @@ def loadWorkerSequence(workers, rsup):
 
     debug("Got "+str(len(workerByName))+" workers and "+str(len(rsup))+" supervisors")
     
-    for w in workerByName.keys():
-        buildWorkerSequence(workerSequence, workerByName, w)
+    try:
+        for w in workerByName.keys():
+            buildWorkerSequence(workerSequence, workerByName, w)
+    except KeyError as e:
+        debug("Unknown Worker: "+str(e), 0, True)
+        raise e
 
     debug("Worker ignition sequence is "+str(workerSequence))
     return (workerSequence, workerSuper, workerByName)
+
+def pushAction(objCfg, rSup):
+    obj = {"action":objCfg['action']}
+    answ = {}
+    
+    for sup in rSup.values():
+        a = sup.push(obj, False)
+        answ[sup.name] = a
+    
+    return json.dumps(answ)
+
+def pushConfig(objCfg, rSup):
+    workerSequence, workerSup, workerByName = loadWorkerSequence(objCfg, rSup)
+    
+    for name in workerSequence:
+        w = workerByName[name]
+        if(not workerSup[name].push(w)):
+            break
+
 
 def read(fil):
     fd = open(fil, "r")
@@ -171,6 +209,8 @@ def read(fil):
     fd.close()
     return d
 
+################## MAIN
+
 if __name__ == '__main__':
     debug("Starting Master...",0)
     cfg = None
@@ -179,24 +219,27 @@ if __name__ == '__main__':
         debug("Using config file: "+str(sys.argv[1]))
         fil = sys.argv[1]
         cfg = read(fil)
-        debug(cfg)
+        debug(cfg, 3)
 
     if(cfg == None):
         debug("Master started, awaiting config", 0)
         cfg = input().strip()
     
-    debug("Loading Config...")
+    debug("Reading config...")
     try:
-        workerSequence, workerSup, workerByName = loadConfig(cfg)
+        rSup = loadSupervisors(cfg)
+        objCfg = json.loads(cfg)
         
-        for name in workerSequence:
-            w = workerByName[name]
-            
-            workerSup[name].pushWorker(w)
+        if("action" in objCfg.keys()):
+            answ = pushAction(objCfg, rSup)
+            print(answ)
+        else:
+            pushConfig(objCfg, rSup)
+        
         
     except Exception as e:
         debug("An exception occured when executing the config", 0, True)
-        debug(str(e), 0, True)
+        debug(repr(e), 0, True)
         if(_DEBUG_LEVEL >= 3):
             traceback.print_exc()
     

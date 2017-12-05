@@ -1,5 +1,4 @@
 '''
-Created on 27 nov. 2017
 
 @author: WIN32GG
 '''
