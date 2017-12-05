@@ -19,6 +19,8 @@ from customlogging import _DEBUG_LEVEL
 import customlogging
 import signal
 import config_checker
+from time import sleep
+from multiprocessing.queues import Empty
 
 OUTPUT_DUPLICATE = 0
 OUTPUT_DISTRIBUTE = 1
@@ -49,7 +51,7 @@ class Worker(object):
         opt: plug to redirect the output of the job to the given address
     '''
 
-    def __init__(self, port):
+    def __init__(self, port, inputQueue):
         self.job = None # a worker has initially no job
         self.jobSetup = False
         self.jobRunning = Value('b')
@@ -59,14 +61,21 @@ class Worker(object):
         self.inputQueue = Queue(50)
         self.outputQueue = Queue(50)
         self.outputs = {}
+        self.server = None
+        
+        self._inputQueue = inputQueue #stdin input 
+        self._exitCode = None
 
-    def stop(self):
+    def stop(self, code=1):
+        debug("[STOP] Stopping worker (code "+str(code)+")")
         self.jobRunning.value = False
 
-        debug("[STOP] Closing listener")
-        self._closeSock(self.server)
+        if(self.server != None):
+            debug("[STOP] Closing listener")
+            self._closeSock(self.server)
 
-        self.netOutThread.join(timeout=1)
+        debug("[STOP] Waiting for output queue to empty...")
+        self.netOutThread.join()
         debug("[STOP] Closing output connections (if any)")
         for sock in self.outputs.keys():
             try:
@@ -74,8 +83,9 @@ class Worker(object):
             except:
                 traceback.print_exc()
 
-        debug("[STOP] Exiting", 0)
-        suicide()
+        debug("[STOP] Exiting with code "+str(code), 0)
+        self._exitCode = code
+        self._inputQueue.close() #triggers exception in main thread causing a check of exitCode
 
     def checkAction(self, config):
         try:
@@ -87,8 +97,12 @@ class Worker(object):
         except:
             pass
         return False
-
+    
     def action_halt(self):
+        debug("[HALT] Halting !", 0)
+        suicide()
+
+    def action_stop(self):
         self.stop()
 
     def loadJob(self, jobName):
@@ -114,7 +128,7 @@ class Worker(object):
             if(_DEBUG_LEVEL == 3):
                 traceback.print_exc()
             debug("[WORKER] Could not load job", 1, True)
-            suicide()
+            self.stop(1)
 
     def updateWithDiff(self, config):
         if(self.checkAction(config)):
@@ -147,6 +161,10 @@ class Worker(object):
         self.listeningThread = Thread(target=self._listenTarget)
         self.netOutThread    = Thread(target=self._clientOutTarget)
         self.jobThread       = Thread(target=self._launchTarget)
+        
+        self.listeningThread.daemon = True
+        self.netOutThread.daemon    = True
+        self.jobThread.daemon       = True
 
         self.listeningThread.start()
         self.netOutThread.start()
@@ -162,7 +180,7 @@ class Worker(object):
             server.listen(4)
         except:
             traceback.print_exc()
-            suicide()
+            self.stop(1)
             return
 
         self.server = server
@@ -203,7 +221,12 @@ class Worker(object):
 
     def _clientOutTarget(self):
         while(self.jobRunning.value or not self.outputQueue.empty()):
-            p = self.outputQueue.get()
+            
+            try:
+                p = self.outputQueue.get(timeout = 1)
+            except Empty:
+                continue
+                      
             if(len(self.outputs) == 0):
                 debug("Got output data but nothing is plugged", 1)
                 print(str(p))
@@ -238,8 +261,7 @@ class Worker(object):
 
             debug("Could not connect to "+str(addr), 0, True)
 
-
-    def _launchTarget(self):
+    def _doJob(self):
         '''
         Runs the job with input and output
         '''
@@ -266,7 +288,16 @@ class Worker(object):
         self.job.destroy()
         #self.jobRunning.value = False
         debug("Reached end of Launch target")
-        self.stop()
+        self.stop(0)
+
+    def _launchTarget(self):
+        try:
+            self._doJob()
+        except:
+            debug("Error from job thread", 0, True)
+            traceback.print_exc()
+            #TODO event: error from job
+            self.stop(1)
    
 
 class Job(object):
@@ -289,7 +320,7 @@ class Job(object):
     def requireData(self):
         return False
 
-def setupWithJsonConfig(config):
+def setupWithJsonConfig(config, inputQueue):
     #Worker setup    
     name = str(config["workername"])
     sys.stdout = SupervisedProcessStream(sys.stdout, name)
@@ -310,7 +341,7 @@ def setupWithJsonConfig(config):
         debug("Debug level is "+str(debuglevel)+" ("+str(customlogging._DEBUG_DICT[debuglevel])+")", 0)
 
     #Worker startup
-    worker = Worker(port)
+    worker = Worker(port, inputQueue)
     worker.name = name
     worker.loadJob(jobName)
 
@@ -326,45 +357,60 @@ def setupWithJsonConfig(config):
 
     return worker
 
+def readerTarget(inputQueue):
+    while True:
+        line = input().strip() 
+        inputQueue.put(line)
+        
 def suicide():
-    os.kill(os.getpid(), signal.SIGTERM) #splendide, suicide
-
-def cmd_launch(port, jobname, data=None):
-    worker = Worker(int(port))
-    worker.loadJob(jobname)
-    if(data != None):
-        worker.setupJob(data)
-    worker.launchJob()
-
-    return worker
+    os.kill(os.getpid(), signal.SIGTERM)
 
 if __name__ == "__main__":
-    worker = None
-    import __main__
-
-    debug("Worker listening")
-   
+    worker = None   
     run = True
+
+    debug("[UNASSIGNED-WORKER] Ready for input")    
+    inputQueue = Queue()
+    
+    inputThread = Thread(target = readerTarget, args=(inputQueue,))
+    inputThread.daemon = True
+    inputThread.start()
 
     while(run):
         try:
-            line = input().strip() #sys.stdin.readline().strip()
-            #if(not config_checker.checkWorkerConfigSanity(line)):
-            #    continue
             
+            try:
+                line = inputQueue.get()
+            except: #Queue has been closed
+                run = False
+                if(worker != None and worker._exitCode != None): #exception from the forced close on stdin
+                    code = worker._exitCode
+                else:
+                    debug("[WARNING] Caught CTRL+C event, stopping")
+                    code = 35
+                    
+                sys.exit(code)
+                
+            # getting input
+            #-------------------------------------
+            # handling input
+                     
             config = json.loads(line)
+            
             if(worker == None):
-                worker = setupWithJsonConfig(config)
+                worker = setupWithJsonConfig(config, inputQueue)
             else:
                 worker.updateWithDiff(config)
-    
+        
+        except SystemExit as e:
+            raise e #must be transmitted
         except:
             worker = None
             run = False
             debug("Uncaught exception, abort", 0, True)
             traceback.print_exc()
-            #suicide() #exit(300)
-        #debug("The given input is not a valid json, trying as cmd")
+            suicide() #cannot stay in this state
+        
 '''
 try:
     cmd = line.split(" ")

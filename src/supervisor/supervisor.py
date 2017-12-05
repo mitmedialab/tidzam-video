@@ -17,7 +17,6 @@ import network
 import subprocess as sp
 
 def suicide():
-    debug("--> kill <--")
     os.kill(os.getpid(), signal.SIGTERM)        
         
 class Supervisor():
@@ -28,9 +27,10 @@ class Supervisor():
     def __init__(self):
         self.workers = {}
         self.running = True
-        self.startSupervisorServer()
         self.stopping = False
         self.workerConfig = {}
+        
+        self.startSupervisorServer()
         
     def stop(self):
         if(self.stopping):
@@ -68,6 +68,7 @@ class Supervisor():
             debug("[SUPERVISOR] Supervisor Server Shutting down", 0, True)
             traceback.print_exc()
             self.server.close()
+            suicide()
         
     def _detectSpecialAction(self, cmd):
         try:
