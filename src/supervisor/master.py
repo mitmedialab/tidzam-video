@@ -9,6 +9,7 @@ import network
 Master file to control all supervisors
 Receive the config for the cluster, checks it and run sends to supervisor
 (V1.5: Also asks and get the supervisor status and can show it in a web application) 
+(V1.55: network discovery)
 '''
 
 import json
@@ -32,8 +33,8 @@ class RemoteSupervisor:
         if(not self._matchAdress()):
             raise ValueError("Invalid IP for unit "+self.name)
         
-        if(self.addr[0] == "127.0.0.1"):
-            raise ValueError("Cannot use loopback as an address")
+        if(self.addr[0] == "127.0.0.1"): #FIXME
+            debug("NOTE: Loopback use is strongly discouraged", 0, True)
         
         if(testConnect and not self._testConnection()):
             raise ValueError("Unreacheable Supervisor for unit "+self.name)
@@ -103,7 +104,7 @@ def loadSupervisors(cfg):
         
  
         
-def loadUnits(units):
+def loadUnits(units, port = 55555):
     
     rsup = {}
     
@@ -112,8 +113,14 @@ def loadUnits(units):
         debug("Testing RemoteSupervisor "+name, 2)
         if(name in rsup.keys()):
             raise ValueError("Worker name "+str(name)+" is already registred")
+        
+        adr = u['address'].split(":")
 
-        rs = RemoteSupervisor(name, (u['address'], 55555)) #TODO port handling
+        a = adr[0]
+        if(len(adr) == 2):
+            port = int(adr[1])
+        
+        rs = RemoteSupervisor(name, (a, port)) #TODO port handling
         rs._test()
         rsup[name] = rs
         debug("Supervisor "+name+": OK", 2)
@@ -199,20 +206,24 @@ def pushConfig(objCfg, rSup):
         w = workerByName[name]
         if(not workerSup[name].push(w)):
             break
+        sleep(.5)
 
 
 def read(fil):
     fd = open(fil, "r")
     d = ""
+    
     for k in fd:
         d += k.strip()
+        
     fd.close()
+    
     return d
 
 ################## MAIN
 
 if __name__ == '__main__':
-    debug("Starting Master...",0)
+    debug("Starting Master...", 0)
     cfg = None
     
     if(len(sys.argv) > 1):  

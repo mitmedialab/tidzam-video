@@ -56,6 +56,8 @@ class Worker(object):
         self.jobSetup = False
         self.jobRunning = Value('b')
         self.jobRunning.value = False
+        self.workerShutdown = Value('b')
+        self.workerShutdown.value = False
         self.port = port
         self.outputmethod = 0
         self.inputQueue = Queue(50)
@@ -65,10 +67,12 @@ class Worker(object):
         
         self._inputQueue = inputQueue #stdin input 
         self._exitCode = None
+        self._startNetwork()
 
     def stop(self, code=1):
         debug("[STOP] Stopping worker (code "+str(code)+")")
         self.jobRunning.value = False
+        self.workerShutdown.value = True
 
         if(self.server != None):
             debug("[STOP] Closing listener")
@@ -120,8 +124,8 @@ class Worker(object):
 
                 #difference btwn import error & load error
             self.job = jobCl.__new__(jobCl)
-
             self.job.__init__()
+            
             debug("[WORKER] Job is loaded", 1)
 
         except:
@@ -147,28 +151,29 @@ class Worker(object):
 
         self.job.setup(data)
         self.jobSetup = True
+        self.job.shouldStop = False
         debug("[WORKER] Job is set up", 1)
 
+    def _startNetwork(self):
+        self.listeningThread = Thread(target=self._listenTarget, daemon = True)
+        self.netOutThread    = Thread(target=self._clientOutTarget, daemon=True)
+        
+        self.listeningThread.start()
+        self.netOutThread.start()
+        
     def launchJob(self):
         if(self.job == None):
             raise ValueError("This worker has no job")
-
+    
         if(self.jobRunning.value):
             raise AssertionError("Process already running")
 
         self.jobRunning.value = True
-
-        self.listeningThread = Thread(target=self._listenTarget)
-        self.netOutThread    = Thread(target=self._clientOutTarget)
-        self.jobThread       = Thread(target=self._launchTarget)
         
-        self.listeningThread.daemon = True
-        self.netOutThread.daemon    = True
-        self.jobThread.daemon       = True
-
-        self.listeningThread.start()
-        self.netOutThread.start()
+        self.jobThread      = Thread(target=self._launchTarget, daemon = True)
         self.jobThread.start()
+        
+        
 
         debug("[WORKER] Job is running", 1)
 
@@ -176,8 +181,9 @@ class Worker(object):
         try:
             server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            server.bind( ('', self.port))
+            server.bind(('', self.port))
             server.listen(4)
+            debug("Listening on "+str(self.port))
         except:
             traceback.print_exc()
             self.stop(1)
@@ -185,25 +191,26 @@ class Worker(object):
 
         self.server = server
         try:
-            while(self.jobRunning.value):
+            while(not self.workerShutdown.value):
                 client, addr = server.accept()
                 if(client != None):
                     debug("Input from: "+str(addr), 1)
                     Thread(target=self._clientInTarget, args=(client,), daemon = True).start()
         except:
+            traceback.print_exc()
             if(not self.jobRunning.value):
                 return
-            traceback.print_exc()
-
+        
 
     def _clientInTarget(self, sock):
         binChan = sock.makefile("rb")
         try:
-            while(self.jobRunning.value):
+            while(not self.workerShutdown.value):
                 p = Packet()
                 p.read(binChan)
                 self.inputQueue.put(p) #hold for next packet if Queue is full
 
+                
         except:
             if(_DEBUG_LEVEL == 3):
                 traceback.print_exc()
@@ -220,7 +227,7 @@ class Worker(object):
                 pass
 
     def _clientOutTarget(self):
-        while(self.jobRunning.value or not self.outputQueue.empty()):
+        while( (not self.workerShutdown.value or self.jobRunning.value) or not self.outputQueue.empty()):       
             
             try:
                 p = self.outputQueue.get(timeout = 1)
@@ -242,7 +249,7 @@ class Worker(object):
                     debug("Output Connection was lost", 0, True)
 
                     self._closeSock(sock)
-                    self.outputs.remove(sock)
+                    del self.outputs.remove[sock]
 
 
     def plug(self, addr): #addr is (hostname, port)
@@ -275,6 +282,7 @@ class Worker(object):
 
             if(type(out) != type(None)):
                 p = None
+                
                 if(isinstance(out, Packet)):
                     p = out
                 else:
@@ -282,6 +290,7 @@ class Worker(object):
 
                 if(isinstance(out, np.ndarray)):
                     p["img"] = out
+                #TODO
 
                 self.outputQueue.put(p)
 
@@ -304,9 +313,6 @@ class Job(object):
     '''
     A job to be executed on a Worker
     '''
-
-    def __init__(self):
-        self.shouldStop = False
 
     def setup(self, data):
         pass
@@ -410,13 +416,3 @@ if __name__ == "__main__":
             debug("Uncaught exception, abort", 0, True)
             traceback.print_exc()
             suicide() #cannot stay in this state
-        
-'''
-try:
-    cmd = line.split(" ")
-    fnc = getattr(__main__, "cmd_"+cmd[0])
-    fnc(*cmd[1:])
-except:
-    traceback.print_exc()
-    debug("Error in command", 0, True)
-    exit(300)'''

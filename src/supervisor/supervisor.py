@@ -127,7 +127,6 @@ class Supervisor():
             return
         name = json.loads(workerConfig)['workername']
         debug("[SUPERVISOR] Config is OK")
-    
         
         if(name in self.workers):
             debug("[SUPERVISOR] Worker found: "+name)

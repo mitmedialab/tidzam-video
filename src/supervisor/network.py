@@ -11,6 +11,7 @@ import struct
 from customlogging import _DEBUG_LEVEL
 from customlogging import debug
 import numpy as np
+import time
 
 OK = "ok"
 
@@ -117,7 +118,7 @@ class Packet:
         
         debug("[NETWORK] Reading bin object of "+str(binSize)+" bytes", 3)
         bufSize = binSize if self.BIN_RECV_FULL else self.BIN_READ_MAX
-
+        st = time.time()
         while(r < binSize):
             if(len(b) + bufSize > binSize):
                 bufSize = binSize - len(b)
@@ -126,7 +127,7 @@ class Packet:
 
             b += a
             r += len(a)
-
+        debug("READ "+str(len(b)) +" in "+str(time.time()-st), 3)
         self.binObj = b
         
 
@@ -148,8 +149,8 @@ class Packet:
         b += msgb
         if(self.binObj != None):
             b += self.binObj
-        if(_DEBUG_LEVEL == 3):
-            debug("[DEBUG] Total packet size is "+str(len(b))+" bytes", 3)
+            
+        debug("[DEBUG] Total packet size is "+str(len(b))+" bytes", 3)
         binChan.write(b)
         binChan.flush()
     
