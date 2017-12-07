@@ -268,6 +268,13 @@ class Worker(object):
 
             debug("Could not connect to "+str(addr), 0, True)
 
+    def _clearInputQueue(self):
+        try:
+            while(True):
+                self.inputQueue.get_nowait()
+        except Empty:
+            return
+    
     def _doJob(self):
         '''
         Runs the job with input and output
@@ -276,6 +283,9 @@ class Worker(object):
         while(not self.job.shouldStop and self.jobRunning.value):
             data = None
             if(self.job.requireData()):
+                if(self.job.allowDrop() and self.inputQueue.full()):
+                    self._clearInputQueue()
+                    
                 data = self.inputQueue.get()
 
             out = self.job.loop(data)
@@ -325,6 +335,9 @@ class Job(object):
 
     def requireData(self):
         return False
+    
+    def allowDrop(self):
+        return True
 
 def setupWithJsonConfig(config, inputQueue):
     #Worker setup    

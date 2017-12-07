@@ -4,20 +4,16 @@
 '''
 
 from worker import Job
-import matplotlib.pyplot as plt
+import numpy as np
+import PIL
 
 class Showjob(Job):
     
-    def setup(self, data):
-        plt.ion()
-        
+    
     
     def loop(self, data):
         img = data.img
-        plt.pause(0.001)
-        plt.imshow(img)
-        plt.show()
-        
+        PIL.Image.fromarray(np.uint8(img)).show()
         
     def requireData(self):
         return True
