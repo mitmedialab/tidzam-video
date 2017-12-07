@@ -25,7 +25,7 @@ class Boxerjob(Job):
 if __name__ == "__main__":
 	from scipy.misc import imread
 
-	job = boxerjob()
+	job = Boxerjob()
 	job.setup()
 	image = imread('data/dog.jpg')
 	print(str(image))

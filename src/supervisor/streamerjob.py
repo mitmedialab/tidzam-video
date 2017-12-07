@@ -6,6 +6,7 @@ from time import sleep
 
 from worker import Job
 import os
+import PIL.Image as Image
 
 class Streamerjob(Job):
     
@@ -21,7 +22,9 @@ class Streamerjob(Job):
             print("Done reading")
             return None
         
-        return img 
+        img2 = Image.fromarray(img)
+        img2 = img2.resize((800,600))
+        return np.array(img2)
     
     def destroy(self):
         self.streamer.terminate()
