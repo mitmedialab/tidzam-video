@@ -5,15 +5,16 @@
 
 from worker import Job
 import numpy as np
-import PIL
+from matplotlib import pyplot as plt
 
 class Showjob(Job):
     
-    
+    def setup(self, data):
+        plt.ion()
     
     def loop(self, data):
-        img = data.img
-        PIL.Image.fromarray(np.uint8(img)).show()
+        plt.imshow(data.img)
+        plt.pause(0.0001)
         
     def requireData(self):
         return True
