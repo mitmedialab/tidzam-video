@@ -18,7 +18,7 @@ class Generatenpjob(Job):
             self.shouldStop = True
             return None
         
-        return np.random.randint(0, 255, size = (1280, 1080, 3), dtype="uint8")
+        return np.random.randint(0, 255, size = (1920, 1080, 3), dtype="uint8")
     
     def requireData(self):
         return False

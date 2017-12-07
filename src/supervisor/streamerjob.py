@@ -47,8 +47,6 @@ class Streamer:
         print(str(pipe.pid))
         infos = pipe.communicate()[0]
         #infos = pipe.stdout.read()
-        print(str(infos))
-        print(str(pipe.returncode))
         infos = infos.decode().split('\n')
         dic = {}
         for info in infos:

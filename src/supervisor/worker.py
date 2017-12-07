@@ -249,7 +249,7 @@ class Worker(object):
                     debug("Output Connection was lost", 0, True)
 
                     self._closeSock(sock)
-                    del self.outputs.remove[sock]
+                    del self.outputs[sock]
 
 
     def plug(self, addr): #addr is (hostname, port)

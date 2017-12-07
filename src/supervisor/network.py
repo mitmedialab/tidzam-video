@@ -12,6 +12,7 @@ from customlogging import _DEBUG_LEVEL
 from customlogging import debug
 import numpy as np
 import time
+import io
 
 OK = "ok"
 
@@ -35,7 +36,13 @@ def createImagePacket(p, npImg):
     p["shape"] = npImg.shape
     p["dtype"] = npImg.dtype.name
     p["checksum"] = hashlib.sha1(npImg).hexdigest()
-    p.binObj = npImg.tobytes()
+    
+    #compression
+    stream = io.BytesIO()
+    np.savez_compressed(stream, npImg)
+    stream.seek(0)
+    
+    p.binObj = stream.read()
     
     return p
     
@@ -46,7 +53,12 @@ def readImagePacket(pck):
     if(not pck["isImage"]):
         return None
     
-    img = np.frombuffer(pck.binObj, dtype=pck["dtype"])
+    #img = np.frombuffer(pck.binObj, dtype=pck["dtype"])
+    inBytes = io.BytesIO()
+    inBytes.write(pck.binObj)
+    inBytes.seek(0)
+    
+    img = np.load(inBytes)['arr_0']
 
     #print(hashlib.sha1(img).hexdigest()+" "+pck["checksum"])
     chk = hashlib.sha1(img).hexdigest()
