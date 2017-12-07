@@ -1,0 +1,49 @@
+{
+  "supervisorport":55555,
+
+
+  "units": [
+    {
+      "name":"local",
+      "address":"127.0.0.1"
+    }
+
+
+
+  ],
+
+  "workers": {
+
+    "local": [
+
+      {
+        "workername" : "streamer",
+        "port":	25224,
+        "jobname": "generatenpjob",
+        "jobdata": "input.mp4",
+        "debuglevel": 3,
+        "outputmethod":"duplicate",
+        "debuglevel": 2,
+        "output": [
+          "printer"
+        ]
+      },
+
+      {
+        "workername" : "printer",
+        "port":	25223,
+        "jobname": "printjob",
+        "debuglevel": 2
+      }
+
+
+
+    ]
+
+
+
+
+  }
+
+
+}
