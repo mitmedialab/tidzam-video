@@ -120,7 +120,7 @@ def loadUnits(units, port = 55555):
         if(len(adr) == 2):
             port = int(adr[1])
         
-        rs = RemoteSupervisor(name, (a, port)) #TODO port handling
+        rs = RemoteSupervisor(name, (a, port)) 
         rs._test()
         rsup[name] = rs
         debug("Supervisor "+name+": OK", 2)

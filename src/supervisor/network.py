@@ -105,6 +105,8 @@ class Packet:
         if(key in self.RESERVED_NAMES):
             raise KeyError("Key name is reserved")
 
+        #TODO check types
+
         if(key in ["img", "image", "bin"]):
             createImagePacket(self, value)
             return

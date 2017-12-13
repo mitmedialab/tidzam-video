@@ -21,9 +21,7 @@ import signal
 import config_checker
 from time import sleep
 from multiprocessing.queues import Empty
-
-OUTPUT_DUPLICATE = 0
-OUTPUT_DISTRIBUTE = 1
+from random import random
 
 class SupervisedProcessStream():
     def __init__(self, old_std, name):
@@ -59,7 +57,7 @@ class Worker(object):
         self.workerShutdown = Value('b')
         self.workerShutdown.value = False
         self.port = port
-        self.outputmethod = 0
+        self.outputmethod = self._duplicateOverNetwork
         self.inputQueue = Queue(50)
         self.outputQueue = Queue(50)
         self.outputs = {}
@@ -137,9 +135,22 @@ class Worker(object):
     def updateWithDiff(self, config):
         if(self.checkAction(config)):
             return
-        debug("[WORKER] Updating worker...")
         
-        #TODO
+        debug("[WORKER] Updating worker...")
+        #TODO implement changes
+        
+        #update port
+        if(int(self.server.getsockname()[1]) != int(config['port'])):
+            p = int(config['port'])
+            debug("Updating worker port to "+str(p))
+            self.port = p
+            self._closeSock(self.server)
+            self._startListener()
+        
+        #update job
+        
+        
+        #update network dispatch method
 
     def setupJobAndLaunch(self, data):
         self.setupJob(data)
@@ -152,13 +163,15 @@ class Worker(object):
         self.job.setup(data)
         self.jobSetup = True
         self.job.shouldStop = False
-        debug("[WORKER] Job is set up", 1)
+        debug("[WORKER] Pushing data to ", 1)
 
-    def _startNetwork(self):
+    def _startListener(self):
         self.listeningThread = Thread(target=self._listenTarget, daemon = True)
-        self.netOutThread    = Thread(target=self._clientOutTarget, daemon=True)
-        
         self.listeningThread.start()
+
+    def _startNetwork(self):    
+        self._startListener()
+        self.netOutThread    = Thread(target=self._clientOutTarget, daemon=True)
         self.netOutThread.start()
         
     def launchJob(self):
@@ -197,6 +210,9 @@ class Worker(object):
                     debug("Input from: "+str(addr), 1)
                     Thread(target=self._clientInTarget, args=(client,), daemon = True).start()
         except:
+            if(self.workerShutdown.value):
+                return
+            
             traceback.print_exc()
             if(not self.jobRunning.value):
                 return
@@ -237,19 +253,31 @@ class Worker(object):
             if(len(self.outputs) == 0):
                 debug("Got output data but nothing is plugged", 1)
                 print(str(p))
+                continue
 
-            for sock in self.outputs:
-                binChan = self.outputs[sock]
-                try:
-                    p.send(binChan)
-                except:
-                    if(_DEBUG_LEVEL == 3):
-                        traceback.print_exc()
+            self.outputmethod(p)
+            
 
-                    debug("Output Connection was lost", 0, True)
+    def _duplicateOverNetwork(self, p):
+        for sock in self.outputs:
+            self._sendTo(sock, p)
+    
+    def _distrubuteOverNetwork(self, p):
+        i = random.randint(0, len(self.outputs))
+        self._sendTo(self.outputs[i], p)
+    
+    def _sendTo(self, sock, p):
+        binChan = self.outputs[sock]
+        try:
+            p.send(binChan)
+        except:
+            if(_DEBUG_LEVEL == 3):
+                traceback.print_exc()
 
-                    self._closeSock(sock)
-                    del self.outputs[sock]
+            debug("Output Connection was lost", 0, True)
+
+            self._closeSock(sock)
+            del self.outputs[sock]
 
 
     def plug(self, addr): #addr is (hostname, port)
@@ -300,8 +328,13 @@ class Worker(object):
 
                 if(isinstance(out, np.ndarray)):
                     p["img"] = out
-                #TODO
-
+                else:
+                    if(isinstance(out, dict)):
+                        for key in out.keys():
+                            p[key] = out[key]
+                    else:
+                        raise TypeError('Can only handle a Packet, npArray or raw types & np array dict')
+                    
                 self.outputQueue.put(p)
 
         self.job.destroy()
@@ -315,7 +348,6 @@ class Worker(object):
         except:
             debug("Error from job thread", 0, True)
             traceback.print_exc()
-            #TODO event: error from job
             self.stop(1)
    
 
