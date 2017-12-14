@@ -62,6 +62,7 @@ class Worker(object):
         self.outputQueue = Queue(50)
         self.outputs = {}
         self.server = None
+        self.jobThread = None
         
         self._inputQueue = inputQueue #stdin input 
         self._exitCode = None
@@ -109,6 +110,7 @@ class Worker(object):
 
     def loadJob(self, jobName):
         try:
+            self.jobName = str(jobName)
             debug("Loading Job file: "+str(jobName), 1)
             mod   = __import__(jobName)
             jobCl = getattr(mod, jobName.capitalize())
@@ -124,7 +126,7 @@ class Worker(object):
             self.job = jobCl.__new__(jobCl)
             self.job.__init__()
             
-            debug("[WORKER] Job is loaded", 1)
+            debug("[WORKER] Job loaded", 1)
 
         except:
             if(_DEBUG_LEVEL == 3):
@@ -137,20 +139,44 @@ class Worker(object):
             return
         
         debug("[WORKER] Updating worker...")
-        #TODO implement changes
-        
+      
         #update port
         if(int(self.server.getsockname()[1]) != int(config['port'])):
             p = int(config['port'])
-            debug("Updating worker port to "+str(p))
+            debug("[WORKER] Updating worker port to "+str(p))
             self.port = p
             self._closeSock(self.server)
             self._startListener()
         
         #update job
-        
-        
-        #update network dispatch method
+        if(config['jobname'] != self.jobName):
+            debug("[WORKER] Replacing job")
+            if("jobreplacemethod" in config):
+                if(config['jobreplacemethod'] == "kill"):
+                    self.job.shouldStop = True
+                    debug("[WORKER] Asked for Job stop")
+            
+            debug("[WORKER] Waiting for job shutdown...")
+            if(self.jobThread != None):
+                self.jobThread.join()
+            
+            debug("[WORKER] Installing new job...")
+            jobName = config["jobname"]
+            jobData = config["jobdata"]
+            self.loadJob(jobName)
+            self.setupJobAndLaunch(jobData)
+
+        #update network dispatch method      
+        self.setNetworkMethod(config)
+            
+    def setNetworkMethod(self, config):
+        if("outputmethod" in config):
+            if(config['outputmethod'] == "distribute"):
+                debug("Output method is set to distribution")
+                self.outputmethod = self._distrubuteOverNetwork
+            else:
+                debug("Output method is set to duplication")
+                self.outputmethod = self._duplicateOverNetwork 
 
     def setupJobAndLaunch(self, data):
         self.setupJob(data)
@@ -171,7 +197,7 @@ class Worker(object):
 
     def _startNetwork(self):    
         self._startListener()
-        self.netOutThread    = Thread(target=self._clientOutTarget, daemon=True)
+        self.netOutThread = Thread(target=self._clientOutTarget, daemon = True)
         self.netOutThread.start()
         
     def launchJob(self):
@@ -183,10 +209,8 @@ class Worker(object):
 
         self.jobRunning.value = True
         
-        self.jobThread      = Thread(target=self._launchTarget, daemon = True)
+        self.jobThread = Thread(target=self._launchTarget, daemon = True)
         self.jobThread.start()
-        
-        
 
         debug("[WORKER] Job is running", 1)
 
@@ -385,7 +409,7 @@ def setupWithJsonConfig(config, inputQueue):
     jobName = config["jobname"]
     debug("Worker job is "+str(jobName))
 
-    if("debuglevel" in config.keys()):
+    if("debuglevel" in config):
         debuglevel = int(config["debuglevel"])
         customlogging._DEBUG_LEVEL = debuglevel
 
@@ -395,6 +419,8 @@ def setupWithJsonConfig(config, inputQueue):
     worker = Worker(port, inputQueue)
     worker.name = name
     worker.loadJob(jobName)
+    
+    worker.setNetworkMethod(config)
 
     if("output" in config):
         for adr in config["output"]:
@@ -402,7 +428,7 @@ def setupWithJsonConfig(config, inputQueue):
             worker.plug((host, int(port)))
 
     data = None
-    if("jobdata" in config.keys()):
+    if("jobdata" in config):
         data = config["jobdata"]
     worker.setupJobAndLaunch(data)
 
