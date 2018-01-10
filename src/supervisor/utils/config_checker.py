@@ -5,7 +5,8 @@ Created on 30 nov. 2017
 '''
 import json
 import traceback
-from customlogging import debug
+
+from .custom_logging import debug
 
 def checkMasterConfigSanity(cfg):
     return checkConfigSanity(cfg, ["units"], ["workers","action","refreshinterval", "supervisorport"])

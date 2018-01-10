@@ -8,8 +8,8 @@ import hashlib
 import json
 import struct
 
-from customlogging import _DEBUG_LEVEL
-from customlogging import debug
+from utils.custom_logging import _DEBUG_LEVEL
+from utils.custom_logging import debug
 import numpy as np
 import time
 import io

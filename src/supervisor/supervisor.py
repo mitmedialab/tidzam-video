@@ -10,9 +10,9 @@ from threading import Thread
 import traceback
 import struct
 
-import config
-import config_checker
-from customlogging import debug, _DEBUG_LEVEL
+from utils import config
+from utils import config_checker
+from utils.custom_logging import debug, _DEBUG_LEVEL
 import network 
 import time
 import subprocess as sp

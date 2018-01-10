@@ -11,17 +11,17 @@ import traceback
 import sys
 import os
 import json
+import operator
 import numpy as np
+from threading import Event
 from network import Packet
 
-from customlogging import debug
-from customlogging import _DEBUG_LEVEL
-import customlogging
+from utils.custom_logging import debug
+from utils.custom_logging import _DEBUG_LEVEL
+from utils import custom_logging
 import signal
-import config_checker
-from time import sleep
 from multiprocessing.queues import Empty
-from random import random
+
 
 class SupervisedProcessStream():
     def __init__(self, old_std, name):
@@ -58,9 +58,14 @@ class Worker(object):
         self.workerShutdown.value = False
         self.port = port
         self.outputmethod = self._duplicateOverNetwork
+        self.inputConnections = {} #sock: chan
         self.inputQueue = Queue(50)
         self.outputQueue = Queue(50)
-        self.outputs = {}
+        
+        self.outputWorkerLocks = {} #sock: Event
+        self.globalOutputLock = Event()
+        self.outputs = {} #sock: chan
+        
         self.server = None
         self.jobThread = None
         
@@ -173,7 +178,7 @@ class Worker(object):
         if("outputmethod" in config):
             if(config['outputmethod'] == "distribute"):
                 debug("Output method is set to distribution")
-                self.outputmethod = self._distrubuteOverNetwork
+                self.outputmethod = self._distributeOverNetwork
             else:
                 debug("Output method is set to duplication")
                 self.outputmethod = self._duplicateOverNetwork 
@@ -244,19 +249,20 @@ class Worker(object):
 
     def _clientInTarget(self, sock):
         binChan = sock.makefile("rb")
+        self.inputConnections[sock]  = binChan
         try:
             while(not self.workerShutdown.value):
                 p = Packet()
                 p.read(binChan)
                 self.inputQueue.put(p) #hold for next packet if Queue is full
 
-                
         except:
             if(_DEBUG_LEVEL == 3):
                 traceback.print_exc()
             debug("Incoming Connection was lost", 0, True)
         finally:
             self._closeSock(sock)
+            del self.inputConnections[sock]
 
     def _closeSock(self, sock):
         if(not sock._closed):
@@ -280,20 +286,66 @@ class Worker(object):
                 continue
 
             self.outputmethod(p)
+
+    def _sendJobCompletionAck(self):
+        for chan in self.inputConnections.values():
+            chan.write(1)
+            chan.flush()
+    
+    def _childWorkerAckTarget(self, sock):
+        binChan = sock.makefile("rb")
+        try:
+            while(not self.workerShutdown.value):
+                binChan.read(1)
+                self.outputWorkerLocks[sock].set()
+                debug("Ack from "+str(sock.getpeername()), 3)
+        
+        except:
+            if(_DEBUG_LEVEL == 3):
+                traceback.print_exc()
+            debug("Output network callback error", 0, True)
+        finally:
+            self._closeSock(sock)
+        
+        
+        #Let the unblock if it is a distribute network bahaviour
+        self.globalOutputLock.set()
+    
+
+    ## Network strategies: 
+    #duplicate: send to all the plugged workers regardless of the availability (the output/input queue grows)
+    #distribute: send to an available worker only suspending the job if none os found at the moment 
+
+    def _checkNetworkOutputStatus(self):        
+        if(self.outputmethod == self._duplicateOverNetwork):
+            #duplicate: wait for all
+            for evt in self.outputWorkerLocks.values():
+                evt.wait()
+        else:
+            #distributed wait for one
+            self.globalOutputLock.wait()
             
+        debug("Done waiting for network synchronization", 3)
 
     def _duplicateOverNetwork(self, p):
         for sock in self.outputs:
             self._sendTo(sock, p)
     
-    def _distrubuteOverNetwork(self, p):
-        i = random.randint(0, len(self.outputs))
-        self._sendTo(self.outputs[i], p)
+    def _distributeOverNetwork(self, p):
+        for sock in self.outputs:
+            if(self.outputWorkerLocks[sock].is_set()):
+                self._sendTo(sock, p)
+                break
+        
     
     def _sendTo(self, sock, p):
         binChan = self.outputs[sock]
         try:
             p.send(binChan)
+            
+            #Network lock management
+            self.outputWorkerLocks[sock].clear()
+            self.globalOutputLock.clear()
         except:
             if(_DEBUG_LEVEL == 3):
                 traceback.print_exc()
@@ -335,8 +387,11 @@ class Worker(object):
         while(not self.job.shouldStop and self.jobRunning.value):
             data = None
             if(self.job.requireData()):
+                
+                #FIXME: new network archi
                 if(self.job.allowDrop() and self.inputQueue.full()):
                     self._clearInputQueue()
+                    debug("Input queue overflow", 0, True)
                     
                 data = self.inputQueue.get()
 
@@ -357,9 +412,10 @@ class Worker(object):
                         for key in out.keys():
                             p[key] = out[key]
                     else:
-                        raise TypeError('Can only handle a Packet, npArray or raw types & np array dict')
+                        raise TypeError('Can only handle a Packet, npArray & np array dict')
                     
                 self.outputQueue.put(p)
+                self._checkNetworkOutputStatus() #FIXME parameter 
 
         self.job.destroy()
         #self.jobRunning.value = False
@@ -397,6 +453,8 @@ class Job(object):
 
 def setupWithJsonConfig(config, inputQueue):
     #Worker setup    
+    if(not "workername" in config.keys()):
+        raise ValueError("Workername is not set")
     name = str(config["workername"])
     sys.stdout = SupervisedProcessStream(sys.stdout, name)
     sys.stderr = SupervisedProcessStream(sys.stderr, name)
@@ -411,9 +469,9 @@ def setupWithJsonConfig(config, inputQueue):
 
     if("debuglevel" in config):
         debuglevel = int(config["debuglevel"])
-        customlogging._DEBUG_LEVEL = debuglevel
+        custom_logging._DEBUG_LEVEL = debuglevel
 
-        debug("Debug level is "+str(debuglevel)+" ("+str(customlogging._DEBUG_DICT[debuglevel])+")", 0)
+        debug("Debug level is "+str(debuglevel)+" ("+str(custom_logging._DEBUG_DICT[debuglevel])+")", 0)
 
     #Worker startup
     worker = Worker(port, inputQueue)

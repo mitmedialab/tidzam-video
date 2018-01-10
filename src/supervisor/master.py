@@ -18,9 +18,9 @@ import traceback
 import re
 import socket
 
-import config_checker
-from customlogging import _DEBUG_LEVEL
-from customlogging import debug
+from utils import config_checker
+from utils.custom_logging import _DEBUG_LEVEL
+from utils.custom_logging import debug
 
 
 class RemoteSupervisor:
@@ -31,15 +31,23 @@ class RemoteSupervisor:
         
     def _test(self, testConnect = True):
         if(not self._matchAdress()):
-            raise ValueError("Invalid IP for unit "+self.name)
+            #adress resolving
+            try:
+                res = socket.gethostbyname_ex(self.addr[0]) # (hostname, aliaslist, ipaddrlist)
+                debug("Resolved "+str(self.addr[0])+" to "+str(res[2]))
+                self.addr = (res[2][0], self.addr[1])
+            except:
+                traceback.print_exc()
+                raise ValueError("For string: "+self.name)
         
         if(self.addr[0] == "127.0.0.1"): #FIXME
-            debug("NOTE: Loopback use is strongly discouraged", 0, True)
+            debug("NOTE: Loopback usage is strongly discouraged", 0, True)
         
         if(testConnect and not self._testConnection()):
             raise ValueError("Unreacheable Supervisor for unit "+self.name)
         
     def _testConnection(self):
+        debug("Testing connection to: "+str(self.addr))
         s = self._connect()
         if(s == None):
             return False
@@ -53,11 +61,11 @@ class RemoteSupervisor:
         
     def _connect(self):
         try:
-            
             sck = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sck.settimeout(2.5)
             sck.connect(self.addr)
             debug("Connected to "+str(self.addr))
+            
             return sck
         except:
             if(_DEBUG_LEVEL >= 3):
@@ -103,7 +111,6 @@ def loadSupervisors(cfg):
     return loadUnits(objCfg['units'])        
         
  
-        
 def loadUnits(units, port = 55555):
     
     rsup = {}
