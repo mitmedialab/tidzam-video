@@ -44,9 +44,14 @@ sudo cp Makefile darknet-nnpack
 cd darknet-nnpack
 make
 
+touch __init__.py
 mkdir weights
 cd weights
 sudo wget https://pjreddie.com/media/files/yolo9000.weights
 sudo wget https://pjreddie.com/media/files/tiny-yolo-voc.weights
 
 cd ../..
+
+cp darknet.py ./darknet-nnpack
+
+
