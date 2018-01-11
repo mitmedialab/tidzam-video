@@ -1,5 +1,5 @@
 from worker import Job
-from boxer import Detector
+from jobs.boxer.boxer import Detector
 import numpy as np
 
 class Boxerjob(Job):

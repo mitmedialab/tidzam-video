@@ -39,9 +39,9 @@ cd ..
 #bash install-opencv_darkflow.sh
 
 # Build darknet-nnpack
-git clone https://github.com/thomaspark-pkj/darknet-nnpack.git
-sudo cp Makefile darknet-nnpack
-cd darknet-nnpack
+git clone https://github.com/thomaspark-pkj/darknet-nnpack.git darknetnnpack
+sudo cp Makefile darknetnnpack
+cd darknetnnpack
 make
 
 touch __init__.py
@@ -52,6 +52,6 @@ sudo wget https://pjreddie.com/media/files/tiny-yolo-voc.weights
 
 cd ../..
 
-cp darknet.py ./darknet-nnpack
+cp darknet.py ./darknetnnpack
 
 

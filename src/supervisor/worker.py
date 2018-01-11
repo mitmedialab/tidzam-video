@@ -118,7 +118,7 @@ class Worker(object):
             self.jobName = str(jobName)
             debug("Loading Job file: "+str(jobName), 1)
             mod   = __import__("jobs."+jobName)
-            jobCl = getattr(mod, jobName.capitalize())
+            jobCl = getattr(getattr(mod, jobName), jobName.capitalize())
 
             debug("[WARN] WARNING: Skipped subclass test", 0, True)
             '''if(not issubclass(jobCl, Job)):

@@ -1,4 +1,4 @@
-import darknet-nnpack.darknet as dn
+from jobs.boxer.darknetnnpack import darknet as dn
 import numpy as np
 
 class Detector:
