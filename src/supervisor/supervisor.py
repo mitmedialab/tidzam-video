@@ -10,10 +10,11 @@ from threading import Thread
 import traceback
 import struct
 
-import config
-import config_checker
-from customlogging import debug
+from utils import config
+from utils import config_checker
+from utils.custom_logging import debug, _DEBUG_LEVEL
 import network 
+import time
 import subprocess as sp
 
 def suicide():
@@ -37,7 +38,7 @@ class Supervisor():
             return
         self.stopping = True
         
-        debug("[SUPERVISOR] Got HALT request, stopping...")
+        debug("[SUPERVISOR] Got STOP request, stopping...")
         self.running = False
         
         debug("[STOP] Stopping workers")
@@ -46,6 +47,9 @@ class Supervisor():
             
         debug("[STOP] Closing server")
         self.server.close()
+        
+        debug("[STOP] Terminating in 1 sec")
+        time.sleep(1)
             
         suicide()
     
@@ -70,20 +74,36 @@ class Supervisor():
             self.server.close()
             suicide()
         
+    def action_halt(self):
+        suicide()
+        return network.OK
+    
+    def action_stop(self):
+        self.stop()
+        return network.OK
+    
+    def action_status(self):
+        return json.dumps(list(self.workerConfig.values()))
+    
     def _detectSpecialAction(self, cmd):
         try:
             cmd = json.loads(cmd)
-            if("workername" in cmd.keys()):
+            if(not "action" in cmd.keys()):
                 return None
             
-            if(cmd["action"] == "halt"):
-                self.stop()
-                return network.OK
+            if("workername" in cmd.keys()): #action is for a worker
+                return None
+                      
+            actionName = "action_"+cmd['action']
             
-            if(cmd['action'] == "status"):
-                return json.dumps(list(self.workerConfig.values()))
-                
-            return "Action not found"
+            if(not hasattr(self, actionName)):
+                return "Action not found"
+            
+            try:
+                return getattr(self, actionName)()
+            except Exception as ex:
+                traceback.print_exc()
+                return "err "+repr(ex)
         except:
             traceback.print_exc()
             return "Error in action"
@@ -122,17 +142,29 @@ class Supervisor():
         Thread(target=self._workerManagementThreadTarget, args=(workerConfig, name)).start()
       
     def handleConfigInput(self, workerConfig):
-        debug("[SUPERVISOR] Checking config...")
-        if(not config_checker.checkWorkerConfigSanity(workerConfig)):
-            return
-        name = json.loads(workerConfig)['workername']
-        debug("[SUPERVISOR] Config is OK")
+        cfgObj = json.loads(workerConfig)
+        if(not 'workername' in cfgObj):
+            raise ValueError('The worker name is mandatory')
+        
+        name = cfgObj['workername']
+        action = False
+        if("action" in cfgObj.keys()):
+            debug("[SUPERVISOR] Got action for worker, skipping config check")
+            action = True
+        else:
+            debug("[SUPERVISOR] Checking config...")
+            if(not config_checker.checkWorkerConfigSanity(workerConfig)):
+                return
+            debug("[SUPERVISOR] Config is OK")
         
         if(name in self.workers):
             debug("[SUPERVISOR] Worker found: "+name)
             self._sendToWorker(name, workerConfig)
         else:
+            if(action):
+                raise ValueError('The worker must exist to pass an action to it')
             self.startWorker(workerConfig, name)
+            
         
     def _workerManagementThreadTarget(self, workerConfig, name):
         debug("[WORKER-MGM] Starting worker process...")        
@@ -160,8 +192,19 @@ if __name__ == '__main__':
     while(True):
         try:
             l = input().strip()
-            if(sup._detectSpecialAction(l)):   
-                continue            
+            try:
+                json.loads(l)
+            except Exception as exc:
+                if(_DEBUG_LEVEL >= 3):
+                    traceback.print_exc()
+                debug('Invaiid Configuration provided', 0, True)
+                
+            
+            act = sup._detectSpecialAction(l)
+            if(act):
+                print(act)
+                continue     
+                   
             sup.handleConfigInput(l)
         except KeyboardInterrupt:
             sup.stop()

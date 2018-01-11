@@ -8,8 +8,8 @@ import hashlib
 import json
 import struct
 
-from customlogging import _DEBUG_LEVEL
-from customlogging import debug
+from utils.custom_logging import _DEBUG_LEVEL
+from utils.custom_logging import debug
 import numpy as np
 import time
 import io
@@ -104,6 +104,8 @@ class Packet:
     def __setitem__(self, key, value):
         if(key in self.RESERVED_NAMES):
             raise KeyError("Key name is reserved")
+
+        #TODO check types
 
         if(key in ["img", "image", "bin"]):
             createImagePacket(self, value)
