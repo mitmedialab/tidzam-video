@@ -1,4 +1,4 @@
-import darknet as dn
+import darknet-nnpack.darknet as dn
 import numpy as np
 
 class Detector:

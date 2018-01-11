@@ -117,7 +117,7 @@ class Worker(object):
         try:
             self.jobName = str(jobName)
             debug("Loading Job file: "+str(jobName), 1)
-            mod   = __import__(jobName)
+            mod   = __import__("jobs."+jobName)
             jobCl = getattr(mod, jobName.capitalize())
 
             debug("[WARN] WARNING: Skipped subclass test", 0, True)
