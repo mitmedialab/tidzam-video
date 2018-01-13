@@ -8,6 +8,7 @@ from multiprocessing import Value
 from threading import Thread
 import socket
 import traceback
+import importlib
 import sys
 import os
 import json
@@ -117,8 +118,9 @@ class Worker(object):
         try:
             self.jobName = str(jobName)
             debug("Loading Job file: "+str(jobName), 1)
-            mod   = __import__("jobs."+jobName)
-            jobCl = getattr(getattr(mod, jobName), jobName.capitalize())
+            mod   = importlib.import_module("jobs."+jobName)
+            shortName = jobName.split(".")[-1]
+            jobCl = getattr(mod, shortName.capitalize())
 
             debug("[WARN] WARNING: Skipped subclass test", 0, True)
             '''if(not issubclass(jobCl, Job)):
@@ -194,7 +196,7 @@ class Worker(object):
         self.job.setup(data)
         self.jobSetup = True
         self.job.shouldStop = False
-        debug("[WORKER] Pushing data to ", 1)
+        debug("[WORKER] Pushing data", 1)
 
     def _startListener(self):
         self.listeningThread = Thread(target=self._listenTarget, daemon = True)
@@ -304,7 +306,6 @@ class Worker(object):
             if(_DEBUG_LEVEL == 3):
                 traceback.print_exc()
             debug("Output network callback error", 0, True)
-        finally:
             self._closeSock(sock)
         
         
@@ -365,6 +366,8 @@ class Worker(object):
 
             binChan = sock.makefile("wb")
             self.outputs[sock] = binChan
+            self.outputWorkerLocks[sock] = Event()
+            self.outputWorkerLocks[sock].set()
             debug("Plugged to "+str(addr))
         except:
             if(_DEBUG_LEVEL == 3):

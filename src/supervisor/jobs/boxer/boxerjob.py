@@ -4,11 +4,11 @@ import numpy as np
 
 class Boxerjob(Job):
 	def setup(self, data):
-		config = b"cfg/yolo9000.cfg"
-		weights = b"weights/yolo9000.weights"
-		meta = b"cfg/combine9k.data"
+		config = b"jobs/boxer/darknetnnpack/cfg/yolo9000.cfg"
+		weights = b"jobs/boxer/darknetnnpack/weights/yolo9000.weights"
+		meta = b"jobs/boxer/darknetnnpack/cfg/combine9k.data"		
 		self.detector = Detector(config, weights, meta)
-		return
+		
 
 	def loop(self, data):
 		image = data.img
@@ -18,6 +18,7 @@ class Boxerjob(Job):
 		image = self.detector.draw_boxes(results, image)
 		
 		print(str(results))
+		return {"img":image, "results":results}
 
 	def requireData(self):
 		return True

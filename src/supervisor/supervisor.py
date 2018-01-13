@@ -164,7 +164,8 @@ class Supervisor():
             if(action):
                 raise ValueError('The worker must exist to pass an action to it')
             self.startWorker(workerConfig, name)
-            
+        
+        time.sleep(1) 
         
     def _workerManagementThreadTarget(self, workerConfig, name):
         debug("[WORKER-MGM] Starting worker process...")        
