@@ -1,4 +1,4 @@
-from jobs.boxer.darknetnnpack import darknet as dn
+from . import darknet as dn
 import numpy as np
 
 class Detector:
@@ -54,6 +54,9 @@ class Detector:
 if __name__ == '__main__':
 	from scipy.misc import imread, imsave
 	from time import time
+	
+	import os
+	os.chdir("darknetnnpack")
 
 	config = b"cfg/yolo9000.cfg"
 	weights = b"weights/yolo9000.weights"

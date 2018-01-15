@@ -175,6 +175,7 @@ class Worker(object):
 
         #update network dispatch method      
         self.setNetworkMethod(config)
+        #TODO plug
             
     def setNetworkMethod(self, config):
         if("outputmethod" in config):
@@ -203,9 +204,12 @@ class Worker(object):
         self.listeningThread.start()
 
     def _startNetwork(self):    
+        self.brokenOutputs = []
         self._startListener()
+        
         self.netOutThread = Thread(target=self._clientOutTarget, daemon = True)
         self.netOutThread.start()
+       
         
     def launchJob(self):
         if(self.job == None):
@@ -240,6 +244,8 @@ class Worker(object):
                 if(client != None):
                     debug("Input from: "+str(addr), 1)
                     Thread(target=self._clientInTarget, args=(client,), daemon = True).start()
+                   
+
         except:
             if(self.workerShutdown.value):
                 return
@@ -250,7 +256,7 @@ class Worker(object):
         
 
     def _clientInTarget(self, sock):
-        binChan = sock.makefile("rb")
+        binChan = sock.makefile("wrb") #w for sending back ack
         self.inputConnections[sock]  = binChan
         try:
             while(not self.workerShutdown.value):
@@ -288,19 +294,31 @@ class Worker(object):
                 continue
 
             self.outputmethod(p)
+            self._outputsClean()
+            
+    def _outputsClean(self):
+        for sock in self.brokenOutputs:
+            del self.outputs[sock]
+            del self.outputWorkerLocks[sock]
+            
+        self.brokenOutputs.clear()
 
     def _sendJobCompletionAck(self):
         for chan in self.inputConnections.values():
-            chan.write(1)
+            chan.write(b'a')
             chan.flush()
     
     def _childWorkerAckTarget(self, sock):
+        debug("Started ChildWorkerNetworkACK", 3)
         binChan = sock.makefile("rb")
         try:
             while(not self.workerShutdown.value):
-                binChan.read(1)
+                binChan.read()
                 self.outputWorkerLocks[sock].set()
                 debug("Ack from "+str(sock.getpeername()), 3)
+                 
+                #Let the unblock if it is a distribute network bahaviour
+                self.globalOutputLock.set()
         
         except:
             if(_DEBUG_LEVEL == 3):
@@ -309,10 +327,6 @@ class Worker(object):
             self._closeSock(sock)
         
         
-        #Let the unblock if it is a distribute network bahaviour
-        self.globalOutputLock.set()
-    
-
     ## Network strategies: 
     #duplicate: send to all the plugged workers regardless of the availability (the output/input queue grows)
     #distribute: send to an available worker only suspending the job if none os found at the moment 
@@ -354,7 +368,7 @@ class Worker(object):
             debug("Output Connection was lost", 0, True)
 
             self._closeSock(sock)
-            del self.outputs[sock]
+            self.brokenOutputs.append(sock)
 
 
     def plug(self, addr): #addr is (hostname, port)
@@ -368,6 +382,8 @@ class Worker(object):
             self.outputs[sock] = binChan
             self.outputWorkerLocks[sock] = Event()
             self.outputWorkerLocks[sock].set()
+            self.globalOutputLock.set()
+            Thread(target=self._childWorkerAckTarget, args=(sock,), daemon = True).start()
             debug("Plugged to "+str(addr))
         except:
             if(_DEBUG_LEVEL == 3):
@@ -400,6 +416,9 @@ class Worker(object):
 
             out = self.job.loop(data)
 
+            self._sendJobCompletionAck()
+            self._checkNetworkOutputStatus() #FIXME parameter 
+
             if(type(out) != type(None)):
                 p = None
                 
@@ -417,8 +436,8 @@ class Worker(object):
                     else:
                         raise TypeError('Can only handle a Packet, npArray & np array dict')
                     
-                self.outputQueue.put(p)
-                self._checkNetworkOutputStatus() #FIXME parameter 
+                self.outputQueue.put(p) #Packets to be sent
+                
 
         self.job.destroy()
         #self.jobRunning.value = False

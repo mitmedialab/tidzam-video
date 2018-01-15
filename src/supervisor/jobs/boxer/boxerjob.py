@@ -1,12 +1,16 @@
+import os
+os.chdir(os.path.dirname(__file__))
+
 from worker import Job
-from jobs.boxer.boxer import Detector
+from .boxer import Detector
 import numpy as np
+
 
 class Boxerjob(Job):
 	def setup(self, data):
-		config = b"jobs/boxer/darknetnnpack/cfg/yolo9000.cfg"
-		weights = b"jobs/boxer/darknetnnpack/weights/yolo9000.weights"
-		meta = b"jobs/boxer/darknetnnpack/cfg/combine9k.data"		
+		config = b"cfg/yolo9000.cfg"
+		weights = b"weights/yolo9000.weights"
+		meta = b"cfg/combine9k.data"		
 		self.detector = Detector(config, weights, meta)
 		
 

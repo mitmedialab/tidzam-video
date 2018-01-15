@@ -53,5 +53,5 @@ sudo wget https://pjreddie.com/media/files/tiny-yolo-voc.weights
 cd ../..
 
 cp darknet.py ./darknetnnpack
-
-
+cp boxerjob.py ./darknetnnpack
+cp boxer.py ./darknetnnpack
