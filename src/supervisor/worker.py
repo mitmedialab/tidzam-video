@@ -313,18 +313,20 @@ class Worker(object):
         binChan = sock.makefile("rb")
         try:
             while(not self.workerShutdown.value):
-                binChan.read()
+                binChan.read(1)
+                
                 self.outputWorkerLocks[sock].set()
                 debug("Ack from "+str(sock.getpeername()), 3)
-                 
                 #Let the unblock if it is a distribute network bahaviour
                 self.globalOutputLock.set()
+                
         
         except:
             if(_DEBUG_LEVEL == 3):
                 traceback.print_exc()
             debug("Output network callback error", 0, True)
             self._closeSock(sock)
+            return
         
         
     ## Network strategies: 
@@ -335,10 +337,21 @@ class Worker(object):
         if(self.outputmethod == self._duplicateOverNetwork):
             #duplicate: wait for all
             for evt in self.outputWorkerLocks.values():
+                debug("Entering Network Wait...",3)
                 evt.wait()
+                debug("Exiting Network Wait...",3)
         else:
             #distributed wait for one
-            self.globalOutputLock.wait()
+            flag = True
+            for e in self.outputWorkerLocks.values():
+                if(e.is_set()):
+                    flag = False
+                    break
+            
+            if(flag):
+                debug("Entering Global Network Wait...",3)
+                self.globalOutputLock.wait()
+                debug("Exiting Global Network Wait...",3)
             
         debug("Done waiting for network synchronization", 3)
 
@@ -352,7 +365,6 @@ class Worker(object):
                 self._sendTo(sock, p)
                 break
         
-    
     def _sendTo(self, sock, p):
         binChan = self.outputs[sock]
         try:

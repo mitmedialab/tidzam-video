@@ -9,6 +9,16 @@
     {
       "name":"trez4",
       "address":"trezhard4.local"
+    },
+
+    {
+      "name":"trez3",
+      "address":"trezhard3.local"
+    },
+
+    {
+      "name":"trez1",
+      "address":"trezhard1.local"
     }
   ],
 
@@ -16,9 +26,30 @@
 
     "trez4": [
       {
-        "workername" : "dl2",
+        "workername" : "dl4",
         "port":	25224,
-        "jobname": "boxer.boxerjob",
+        "jobname": "boxer.darknetnnpack.boxerjob",
+        "jobdata":"none",
+        "debuglevel": 3,
+        "output": ["printer"]
+      }
+    ],
+    "trez1": [
+      {
+        "workername" : "dl1",
+        "port":	25224,
+        "jobname": "boxer.darknetnnpack.boxerjob",
+        "jobdata":"none",
+        "debuglevel": 3,
+        "output": ["printer"]
+      }
+    ],
+
+    "trez3": [
+      {
+        "workername" : "dl3",
+        "port":	25224,
+        "jobname": "boxer.darknetnnpack.boxerjob",
         "jobdata":"none",
         "debuglevel": 3,
         "output": ["printer"]
@@ -34,7 +65,7 @@
         "debuglevel": 3,
         "jobdata":"input.mp4",
         "outputmethod":"distribute",
-        "output": ["dl2"]
+        "output": ["dl1", "dl3", "dl4"]
       },
 
       {
