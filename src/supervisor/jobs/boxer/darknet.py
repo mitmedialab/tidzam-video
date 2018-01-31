@@ -6,6 +6,8 @@ import random
 import numpy as np
 import os
 
+meta_classes = [0, 2, 4, 5, 6, 7, 10, 5170, 5174, 5177] + [i for i in range(6454, 9418)]
+
 def sample(probs):
     s = sum(probs)
     probs = [a/s for a in probs]
@@ -137,8 +139,8 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
     sw.print_now()
 
     res = []
-    print("LOL = "+str(meta.classes*num))
-    for i in range(meta.classes):
+    
+    for i in meta_classes:
         for j in range(num):
             if probs[j][i] > 0:
                 res.append((meta.names[i], probs[j][i], (boxes[j].x, boxes[j].y, boxes[j].w, boxes[j].h)))
