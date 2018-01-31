@@ -1,0 +1,29 @@
+{
+
+  "options": {
+    "default_img_rate":8,
+    "defaut_resolution":"800x600",
+    "max_streamers":5,
+    "video_extensions": ".mp4;.avi"
+
+  },
+
+  "stream": [
+    {
+      "name":"cam0",
+      "url":"https://www.rmp-streaming.com/media/bbb-360p.mp4"
+    }
+  ],
+
+  "folders": [
+    {
+      "name":"tidzam-video",
+      "path":"/home/win32gg/Documents/ESILV/2017-2018/TidmarshCWD/TidmarshCWD/src/supervisor/data",
+      "recursive":1
+    }
+
+  ]
+
+
+
+}

@@ -3,7 +3,7 @@
 export BASE_INSTALL=`dirname $0`
 sudo apt-get update -y
 sudo apt-get install python3-pip git -y
-sudo pip3 install numpy matplotlib scipy
+sudo pip3 install numpy matplotlib scipy pillow 
 
 # Install PeachPy and confu
 sudo pip3 install --upgrade git+https://github.com/Maratyszcza/PeachPy

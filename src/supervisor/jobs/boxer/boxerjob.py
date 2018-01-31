@@ -5,6 +5,12 @@ from worker import Job
 from .boxer import Detector
 import numpy as np
 
+def encode_results(results):
+	r = []
+	for elem in results:
+		r.append( (elem[0].decode(encoding="utf-8"), elem[1], elem[2]) )
+		
+	return r
 
 class Boxerjob(Job):
 	def setup(self, data):
@@ -22,7 +28,7 @@ class Boxerjob(Job):
 		image = self.detector.draw_boxes(results, image)
 		
 		print(str(results))
-		return {"img":image, "results":results}
+		return {"img":image, "results":encode_results(results)}
 
 	def requireData(self):
 		return True

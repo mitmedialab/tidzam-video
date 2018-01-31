@@ -290,7 +290,7 @@ class Worker(object):
                       
             if(len(self.outputs) == 0):
                 debug("Got output data but nothing is plugged", 1)
-                print(str(p))
+                print(str(p)) #FIXME
                 continue
 
             self.outputmethod(p)
@@ -305,7 +305,7 @@ class Worker(object):
 
     def _sendJobCompletionAck(self):
         for chan in self.inputConnections.values():
-            chan.write(b'a')
+            chan.write(b'a') #whatever
             chan.flush()
     
     def _childWorkerAckTarget(self, sock):
@@ -532,7 +532,7 @@ def readerTarget(inputQueue):
         inputQueue.put(line)
         
 def suicide():
-    os.kill(os.getpid(), signal.SIGTERM)
+    os.kill(os.getpid(), signal.SIGKILL)
 
 if __name__ == "__main__":
     worker = None   

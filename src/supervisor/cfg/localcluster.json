@@ -4,76 +4,31 @@
     {
       "name":"mypc",
       "address":"127.0.0.1"
-    },
-
-    {
-      "name":"nh",
-      "address":"newhorizons"
-    },
-
-    {
-      "name":"trezhard1",
-      "address":"trezhard1"
-    },
-    {
-      "name":"trezhard3",
-      "address":"trezhard3"
     }
 
 
   ],
 
-  "workers": {
-    "trezhard1": [
-      {
+"workers": {
+  "mypc": [
+    {
 
-        "workername" : "dl1",
-        "port":	25224,
-        "jobname": "boxerjob",
-        "jobdata":"none",
-        "debuglevel": 3,
-        "output": ["printer"]
-      }
-    ],
-
-    "trezhard3": [
-      {
-
-        "workername" : "dl2",
-        "port":	25224,
-        "jobname": "boxerjob",
-        "jobdata":"none",
-        "debuglevel": 3,
-        "output": ["printer"]
-      }
-    ],
-
-
-    "mypc": [
-      {
-
-        "workername" : "printer",
-        "port":	25224,
-        "jobname": "showjob",
-        "jobdata":"none",
-        "debuglevel": 3
-      }
-    ],
-
-    "nh": [
+      "workername" : "printer",
+      "port":	25224,
+      "jobname": "showjob",
+      "jobdata":"none",
+      "debuglevel": 3
+    },
       {
 
         "workername" : "aya",
         "port":	25223,
-        "jobname": "streamerjob",
+        "jobname": "multistreamer",
         "debuglevel": 3,
-        "jobdata":"input.mp4",
+        "jobdata":"cfg/multi_stream_test.json",
         "outputmethod":"distribute",
-        "output": ["dl1", "dl2"]
+        "output": ["printer"]
       }
-
     ]
-
   }
-
 }

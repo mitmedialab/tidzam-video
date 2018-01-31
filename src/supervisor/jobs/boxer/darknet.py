@@ -113,12 +113,12 @@ def classify(net, meta, im):
 
 class Stopwatch:
 
-	def __init__(self):
-		self.start = time()
-
-	def print_now(self):
-		print("ELAPSED: "+str(time()-self.start))
-		self.start = time()
+    def __init__(self):
+        self.start = time()
+    
+    def print_now(self):
+        print("ELAPSED: "+str(time()-self.start))
+        self.start = time()
 
 
 def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
