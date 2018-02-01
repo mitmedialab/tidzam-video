@@ -10,10 +10,12 @@ from threading import Thread
 import traceback
 import struct
 
-from utils import config
+from utils import config, custom_logging
 from utils import config_checker
 from utils.custom_logging import debug, _DEBUG_LEVEL
 import network 
+import worker
+import sys
 import time
 import subprocess as sp
 
@@ -26,6 +28,9 @@ class Supervisor():
     '''
     
     def __init__(self):
+        sys.stdout = worker.SupervisedProcessStream(sys.stdout, "SUPERVISOR")
+        sys.stderr = worker.SupervisedProcessStream(sys.stderr, "SUPERVISOR")
+        
         self.workers = {}
         self.running = True
         self.stopping = False
@@ -38,7 +43,7 @@ class Supervisor():
             return
         self.stopping = True
         
-        debug("[SUPERVISOR] Got STOP request, stopping...")
+        debug("Got STOP request, stopping...")
         self.running = False
         
         debug("[STOP] Stopping workers")
@@ -61,15 +66,15 @@ class Supervisor():
         try:
             self.server.bind(('', config.SUPERVISOR_PORT))
             self.server.listen(4)
-            debug("[SUPERVISOR] Started Supervisor Server")
+            debug("Started Supervisor Server")
             while(self.running):
                 client, addr = self.server.accept()
-                debug("[SUPERVISOR] Connection from "+str(addr))
+                debug("Connection from "+str(addr))
                 
                 Thread(target=self._clientTarget, args=(client,)).start()
             
         except:
-            debug("[SUPERVISOR] Supervisor Server Shutting down", 0, True)
+            debug("Supervisor Server Shutting down", 0, True)
             traceback.print_exc()
             self.server.close()
             suicide()
@@ -134,7 +139,7 @@ class Supervisor():
                 traceback.print_exc()
                 break
         
-        debug("[SUPERVISOR] Closing client connection", 1, True)
+        debug("Closing client connection", 1, True)
         sock.shutdown(socket.SHUT_RDWR)
         sock.close()
     
@@ -149,16 +154,16 @@ class Supervisor():
         name = cfgObj['workername']
         action = False
         if("action" in cfgObj.keys()):
-            debug("[SUPERVISOR] Got action for worker, skipping config check")
+            debug("Got action for worker, skipping config check")
             action = True
         else:
-            debug("[SUPERVISOR] Checking config...")
+            debug("Checking config...")
             if(not config_checker.checkWorkerConfigSanity(workerConfig)):
                 return
-            debug("[SUPERVISOR] Config is OK")
+            debug("Config is OK")
         
         if(name in self.workers):
-            debug("[SUPERVISOR] Worker found: "+name)
+            debug("Worker found: "+name)
             self._sendToWorker(name, workerConfig)
         else:
             if(action):
@@ -186,10 +191,12 @@ class Supervisor():
         proc.stdin.write(config+"\n")
         proc.stdin.flush()
            
+           
+           
 if __name__ == '__main__':
     
     sup = Supervisor()
-    debug("[SUPERVISOR] Ready for input")
+    debug("Ready for input")
     while(True):
         try:
             l = input().strip()

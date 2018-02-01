@@ -22,7 +22,7 @@ from utils.custom_logging import _DEBUG_LEVEL
 from utils import custom_logging
 import signal
 from multiprocessing.queues import Empty
-
+from datetime import datetime
 
 class SupervisedProcessStream():
     def __init__(self, old_std, name):
@@ -32,7 +32,8 @@ class SupervisedProcessStream():
     def write(self, text):
         text = text.rstrip()
         if len(text) == 0: return
-        self.old_std.write("["+str(self.name)+"] ("+str(os.getpid())+") : " + text + '\n')
+        d = str(datetime.now())+" "
+        self.old_std.write(d+ "["+str(self.name)+"] ("+str(os.getpid())+") : " + text + '\n')
 
     def flush(self):
         self.old_std.flush()
@@ -133,41 +134,41 @@ class Worker(object):
             self.job = jobCl.__new__(jobCl)
             self.job.__init__()
             
-            debug("[WORKER] Job loaded", 1)
+            debug("Job loaded", 1)
 
         except:
             if(_DEBUG_LEVEL == 3):
                 traceback.print_exc()
-            debug("[WORKER] Could not load job", 1, True)
+            debug("Could not load job", 1, True)
             self.stop(1)
 
     def updateWithDiff(self, config):
         if(self.checkAction(config)):
             return
         
-        debug("[WORKER] Updating worker...")
+        debug("Updating worker...")
       
         #update port
         if(int(self.server.getsockname()[1]) != int(config['port'])):
             p = int(config['port'])
-            debug("[WORKER] Updating worker port to "+str(p))
+            debug("Updating worker port to "+str(p))
             self.port = p
             self._closeSock(self.server)
             self._startListener()
         
         #update job
         if(config['jobname'] != self.jobName):
-            debug("[WORKER] Replacing job")
+            debug("Replacing job")
             if("jobreplacemethod" in config):
                 if(config['jobreplacemethod'] == "kill"):
                     self.job.shouldStop = True
-                    debug("[WORKER] Asked for Job stop")
+                    debug("Asked for Job stop")
             
-            debug("[WORKER] Waiting for job shutdown...")
+            debug("Waiting for job shutdown...")
             if(self.jobThread != None):
                 self.jobThread.join()
             
-            debug("[WORKER] Installing new job...")
+            debug("Installing new job...")
             jobName = config["jobname"]
             jobData = config["jobdata"]
             self.loadJob(jobName)
@@ -197,7 +198,7 @@ class Worker(object):
         self.job.setup(data)
         self.jobSetup = True
         self.job.shouldStop = False
-        debug("[WORKER] Pushing data", 1)
+        debug("Pushing data", 1)
 
     def _startListener(self):
         self.listeningThread = Thread(target=self._listenTarget, daemon = True)
@@ -223,7 +224,7 @@ class Worker(object):
         self.jobThread = Thread(target=self._launchTarget, daemon = True)
         self.jobThread.start()
 
-        debug("[WORKER] Job is running", 1)
+        debug("Job is running", 1)
 
     def _listenTarget(self):
         try:
@@ -313,7 +314,8 @@ class Worker(object):
         binChan = sock.makefile("rb")
         try:
             while(not self.workerShutdown.value):
-                binChan.read(1)
+                if(binChan.read(1) != b'a'): #magic value
+                    raise ValueError("Wrong ack value")
                 
                 self.outputWorkerLocks[sock].set()
                 debug("Ack from "+str(sock.getpeername()), 3)
@@ -433,20 +435,19 @@ class Worker(object):
 
             if(type(out) != type(None)):
                 p = None
-                
+                   
                 if(isinstance(out, Packet)):
                     p = out
-                else:
+                else:    
                     p = Packet()
-
-                if(isinstance(out, np.ndarray)):
-                    p["img"] = out
-                else:
-                    if(isinstance(out, dict)):
-                        for key in out.keys():
-                            p[key] = out[key]
+                    if(isinstance(out, np.ndarray) and p == None):
+                        p["img"] = out
                     else:
-                        raise TypeError('Can only handle a Packet, npArray & np array dict')
+                        if(isinstance(out, dict)):
+                            for key in out.keys():
+                                p[key] = out[key]
+                        else:
+                            raise TypeError('Can only handle a Packet, npArray & np array dict')
                     
                 self.outputQueue.put(p) #Packets to be sent
                 
@@ -538,7 +539,7 @@ if __name__ == "__main__":
     worker = None   
     run = True
 
-    debug("[UNASSIGNED-WORKER] Ready for input")    
+    debug("Ready for input")    
     inputQueue = Queue()
     
     inputThread = Thread(target = readerTarget, args=(inputQueue,))

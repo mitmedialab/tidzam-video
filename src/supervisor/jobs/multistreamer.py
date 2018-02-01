@@ -4,7 +4,7 @@ from os import listdir
 import os
 from os.path import isfile
 import traceback
-
+#import utils.custom_logging.#profiler as #prof
 import psutil
 
 import PIL.Image as Image
@@ -103,13 +103,16 @@ class Multistreamer(Job):
                 self.startStreamer(streamerInfo)
             
         if('folders' in self.cfg):
+            #prof.enter("FOLDER_EXPLORATION")
             debug("Starting folder exploration...", 3)
             for streamerInfo in self.cfg['folders']:
                 if(getWithDefault(streamerInfo, "recursive")):
                     self._recFolderExploration(streamerInfo['path'], streamerInfo)
-                    
+                
+            #prof.exit()    
             while(self.streamerCount < self.options[self.MAX_STREAMERS_TAG] and not self.streamerStartQueue.empty()):
                 self._startNewStreamerFromExploration()
+                
                 
     def _recFolderExploration(self, folderPath, streamerInfo):
         for b in listdir(folderPath):
@@ -193,19 +196,21 @@ class Multistreamer(Job):
 
 class Streamer:
     def __init__(self, name, url, img_rate, resol):
+        #prof.enter("STREAMER")
         self.name = name
         self.url = url.strip()
         self.img_rate = img_rate
         self.resolution = resol
         self.resolution = resTextToTuple(self.resolution)
         self.doResize = type(self.resolution)  == type(())
-        debug("Starting streamer "+str(name), 3)
+        #debug("Starting streamer "+str(name), 3)
         infos = self.meta_data()
         self.shape = int(infos['width']),int(infos['height'])
         self.img_count = 0
         self.open()
         
         debug("Streamer "+str(name)+" ("+str(url)+") opened: img_rate="+str(self.img_rate)+" prefered_resolution="+str(self.resolution)+" original_resolution="+str(self.shape), 3)
+        #prof.exit()
 
     def meta_data(self):
         #metadata of interest

@@ -5,6 +5,7 @@ import math
 import random
 import numpy as np
 import os
+from utils.custom_logging import debug
 
 meta_classes = [0, 2, 4, 5, 6, 7, 10, 5170, 5174, 5177] + [i for i in range(6454, 9418)]
 
@@ -119,24 +120,32 @@ class Stopwatch:
         self.start = time()
     
     def print_now(self):
-        print("ELAPSED: "+str(time()-self.start))
+        print("ELAPSED: "+str(self.get_time()))
+        
+    
+    def get_time(self):
+        t = str(time()-self.start)
         self.start = time()
+        
+        return t
 
-
-def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
+def detect(net, meta, image, thresh=.2, hier_thresh=.5, nms=.45):
     sw = Stopwatch()
+    debug("Darknet running on image...", 2)
+    
+    debug("DARKNET TIMINGS", 3)
 
     boxes = make_boxes(net)
-    sw.print_now()
+    debug("MAKE_BOXES "+str(sw.get_time()), 3)
 
     probs = make_probs(net)
-    sw.print_now()
+    debug("MAKE_PROBAS "+str(sw.get_time()), 3)
 
     num =   num_boxes(net)
-    sw.print_now()
+    debug("NUM_BOXES "+str(sw.get_time()), 3)
 
     network_detect(net, image, thresh, hier_thresh, nms, boxes, probs)
-    sw.print_now()
+    debug("DETECTION "+str(sw.get_time()), 3)
 
     res = []
     
@@ -144,7 +153,7 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
         for j in range(num):
             if probs[j][i] > 0:
                 res.append((meta.names[i], probs[j][i], (boxes[j].x, boxes[j].y, boxes[j].w, boxes[j].h)))
-    sw.print_now()
+    debug("LABELISATION "++str(sw.get_time()), 3)
     res = sorted(res, key=lambda x: -x[1])
 
     free_ptrs(cast(probs, POINTER(c_void_p)), num)

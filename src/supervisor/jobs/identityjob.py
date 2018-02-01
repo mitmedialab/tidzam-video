@@ -10,7 +10,7 @@ class Identityjob(Job):
         pass
     
     def loop(self, data):
-        print(str(data))
+        #print(str(data))
         return data
     
     def requireData(self):

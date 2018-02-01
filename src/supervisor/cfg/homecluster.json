@@ -1,0 +1,62 @@
+{
+
+  "units": [
+      {
+        "name":"mypc",
+        "address":"192.168.1.41"
+      },
+
+      {
+        "name":"nh",
+        "address":"newhorizons"
+      }
+
+    ],
+
+  "workers": {
+    "nh": [
+      {
+
+        "workername" : "dl2",
+        "port":	25224,
+        "jobname": "boxer.darknetnnpack.boxerjob",
+        "jobdata":"none",
+        "debuglevel": 3,
+        "output": ["printer"]
+      },
+
+      {
+
+        "workername" : "dl1",
+        "port":	25225,
+        "jobname": "boxer.darknetnnpack.boxerjob",
+        "jobdata":"none",
+        "debuglevel": 3,
+        "output": ["printer"]
+      }
+    ],
+
+    "mypc": [
+      {
+
+        "workername" : "printer",
+        "port":	25224,
+        "jobname": "showjob",
+        "jobdata":"none",
+        "debuglevel": 3
+      },
+
+
+      {
+
+        "workername" : "aya",
+        "port":	25223,
+        "jobname": "streamerjob",
+        "debuglevel": 3,
+        "jobdata":"input.mp4",
+        "outputmethod":"distribute",
+        "output": ["dl1", "dl2"]
+      }
+    ]
+  }
+}

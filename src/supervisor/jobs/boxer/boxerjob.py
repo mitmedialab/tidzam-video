@@ -1,4 +1,5 @@
 import os
+from utils.custom_logging import debug
 os.chdir(os.path.dirname(__file__))
 
 from worker import Job
@@ -18,17 +19,19 @@ class Boxerjob(Job):
 		weights = b"weights/yolo9000.weights"
 		meta = b"cfg/combine9k.data"		
 		self.detector = Detector(config, weights, meta)
+		debug("Started detector cfg="+str(config)+" weights="+str(weights)+" meta="+str(meta), 3)
 		
-
+		
 	def loop(self, data):
 		image = data.img
-		print(type(image))
 
 		results = self.detector.run(image)
 		image = self.detector.draw_boxes(results, image)
 		
-		print(str(results))
-		return {"img":image, "results":encode_results(results)}
+		data['img'] = image # COMMENT OUT TO UNDO BOXES DRAWING
+		data['detection'] = encode_results(results)
+		
+		return data
 
 	def requireData(self):
 		return True

@@ -29,6 +29,7 @@ sudo wget https://pjreddie.com/media/files/tiny-yolo-voc.weights
 
 cd ../..
 
+echo 'Installing darket and boxer scripts...'
 cp darknet.py ./darknet
 cp boxerjob.py ./darknet
 cp boxer.py ./darknet

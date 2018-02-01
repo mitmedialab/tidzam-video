@@ -2,9 +2,6 @@
 
 @author: WIN32GG
 '''
-from time import sleep
-import network
-
 '''
 Master file to control all supervisors
 Receive the config for the cluster, checks it and run sends to supervisor
@@ -13,14 +10,18 @@ Receive the config for the cluster, checks it and run sends to supervisor
 '''
 
 import json
-import sys
-import traceback
 import re
 import socket
+import sys
+from time import sleep
+import traceback
 
+import network
 from utils import config_checker
 from utils.custom_logging import _DEBUG_LEVEL
 from utils.custom_logging import debug
+from worker import SupervisedProcessStream
+#from utils.custom_logging import #profiler as #prof
 
 
 class RemoteSupervisor:
@@ -30,6 +31,7 @@ class RemoteSupervisor:
         self.name = name
         
     def _test(self, testConnect = True):
+        #prof.enter("SUPERVISOR_TEST")
         if(not self._matchAdress()):
             #adress resolving
             try:
@@ -38,13 +40,18 @@ class RemoteSupervisor:
                 self.addr = (res[2][0], self.addr[1])
             except:
                 traceback.print_exc()
+                
                 raise ValueError("For string: "+self.name)
         
         if(self.addr[0] == "127.0.0.1"): #FIXME
             debug("NOTE: Loopback usage is strongly discouraged", 0, True)
         
+        
         if(testConnect and not self._testConnection()):
+            
             raise ValueError("Unreacheable Supervisor for unit "+self.name)
+        
+        
         
     def _testConnection(self):
         debug("Testing connection to: "+str(self.addr))
@@ -60,23 +67,25 @@ class RemoteSupervisor:
         sck.close()
         
     def _connect(self):
+        #prof.enter("CONNECTION")
         try:
             sck = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sck.settimeout(2.5)
             sck.connect(self.addr)
             debug("Connected to "+str(self.addr))
-            
             return sck
         except:
             if(_DEBUG_LEVEL >= 3):
                 traceback.print_exc()
             return None
+            
         
     def _matchAdress(self):
         return re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", self.addr[0]) != None
     
   
     def push(self, obj, throwOnError = True):
+        #prof.enter("PUSH")
         debug("Pushing to "+self.name)
         sock = self._connect()
         chan = sock.makefile("rwb")
@@ -95,9 +104,11 @@ class RemoteSupervisor:
                 debug("Push failure", 0, True)
                 debug("Refer to supervisor log for details", 0, True)
                 debug("Err was:"+answ,0 ,True)
+                
                 return False
             
         debug("OK")
+        
         return answ
 
 def loadSupervisors(cfg):
@@ -112,7 +123,7 @@ def loadSupervisors(cfg):
         
  
 def loadUnits(units, port = 55555):
-    
+    #prof.enter("UNITS_LOAD")
     rsup = {}
     
     for u in units:
@@ -131,7 +142,7 @@ def loadUnits(units, port = 55555):
         rs._test()
         rsup[name] = rs
         debug("Supervisor "+name+": OK", 2)
-
+    
     return rsup
 
 def checkWorkerConfig(cfg):
@@ -144,7 +155,7 @@ def loadWorkerSequence(objCfg, rsup):
     return (workerSequence, workerSup, workerByName)
 
 def loadWorkerDistributionSequence(workers, rsup):
-    
+    #prof.enter("DISTRIB_LOAD")
     def buildWorkerSequence(seq, workerDict, currentWorker):
         if(currentWorker in seq):
             return
@@ -168,6 +179,7 @@ def loadWorkerDistributionSequence(workers, rsup):
     
     for sup in workers.keys():
         if(not sup in rsup):
+            
             raise ValueError("The requested unit is unknown: "+sup)
         
         for worker in workers[sup]:
@@ -176,9 +188,11 @@ def loadWorkerDistributionSequence(workers, rsup):
             
             debug("Loading: "+name)
             if(not checkWorkerConfig(json.dumps(worker))):
+                
                 raise ValueError("Unable to load config for worker: "+name)
             
             if(worker["workername"] in workerByName):
+                
                 raise ValueError("Duplicate for worker name "+name)
     
             workerByName[name] = worker
@@ -191,9 +205,11 @@ def loadWorkerDistributionSequence(workers, rsup):
             buildWorkerSequence(workerSequence, workerByName, w)
     except KeyError as e:
         debug("Unknown Worker: "+str(e), 0, True)
+        
         raise e
 
     debug("Worker ignition sequence is "+str(workerSequence))
+    
     return (workerSequence, workerSuper, workerByName)
 
 def pushAction(objCfg, rSup):
@@ -230,6 +246,10 @@ def read(fil):
 ################## MAIN
 
 if __name__ == '__main__':
+    sys.stdout = SupervisedProcessStream(sys.stdout, "MASTER")
+    sys.stderr = SupervisedProcessStream(sys.stderr, "MASTER")
+	
+    #prof.enter("main")
     debug("Starting Master...", 0)
     cfg = None
     
