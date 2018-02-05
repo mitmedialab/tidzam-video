@@ -12,7 +12,7 @@ import copy
 import numpy as np
 import subprocess as sp
 from utils.config_checker import checkConfigSanity
-from utils.custom_logging import debug
+from utils.custom_logging import debug, _DEBUG_LEVEL
 from worker import Job
 
 
@@ -158,10 +158,18 @@ class Multistreamer(Job):
         img_rate   = getWithDefault(streamerInfo, "img_rate", self.options[self.DEFAULT_IMG_RATE_TAG])
         name       = getWithDefault(streamerInfo, "name", "streamer"+str(self.streamerCount))
         location   = getWithDefault(streamerInfo, "url")
+        
         if(location == None):
             location = getWithDefault(streamerInfo, "path")
+            
+        try:
+            streamer = Streamer(name, location, img_rate, resolution)
+        except:
+            debug("Cannot start streamer "+name+" ("+str(location)+")", 2, True)
+            if(_DEBUG_LEVEL >= 3):
+                traceback.print_exc()
+            return
         
-        streamer = Streamer(name, location, img_rate, resolution)
         self.streamers.append(streamer)
         self.streamerCount += 1
     
@@ -171,6 +179,9 @@ class Multistreamer(Job):
             if(self.streamerIndex >= len(self.streamers)):
                 self.streamerIndex = 0
                 
+            if(len(self.streamers) == 0):
+                return None
+            
             streamer = self.streamers[self.streamerIndex]
             
             img = streamer.get_image()

@@ -440,7 +440,7 @@ class Worker(object):
                     p = out
                 else:    
                     p = Packet()
-                    if(isinstance(out, np.ndarray) and p == None):
+                    if(isinstance(out, np.ndarray)):
                         p["img"] = out
                     else:
                         if(isinstance(out, dict)):
