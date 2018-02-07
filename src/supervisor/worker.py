@@ -282,6 +282,10 @@ class Worker(object):
                 pass
 
     def _clientOutTarget(self):
+        """
+        Sends the Packets to the plugged Workers
+        """
+        
         while( (not self.workerShutdown.value or self.jobRunning.value) or not self.outputQueue.empty()):       
             
             try:
@@ -310,6 +314,10 @@ class Worker(object):
             chan.flush()
     
     def _childWorkerAckTarget(self, sock):
+        """
+        Receives Acknoledgement info: the transmitted Packed has been processed and its ok to send another
+        """
+        
         debug("Started ChildWorkerNetworkACK", 3)
         binChan = sock.makefile("rb")
         try:
@@ -386,6 +394,9 @@ class Worker(object):
 
 
     def plug(self, addr): #addr is (hostname, port)
+        """
+        Connect the output of this Worker to the input of another one
+        """
 
         debug("Plugging to "+str(addr))
         try:
@@ -472,18 +483,36 @@ class Job(object):
     '''
 
     def setup(self, data):
+        """
+        Setup the job, open ressources
+        """
         pass
 
     def loop(self, data):
+        """
+        Called when the job has to run, the job can return data
+        Either: np.ndarray
+                network.Packet
+                dictionnary with an optional np array in the 'img' key
+        """
         raise NotImplementedError("Main loop not implemented")
 
     def destroy(self):
+        """
+        Stop job, close ressources
+        """
         pass
 
     def requireData(self):
+        """
+        Does this job requires data to run?
+        """
         return False
     
     def allowDrop(self):
+        """
+        Allow Packets to be dropped if this job is too slow
+        """
         return True
 
 def setupWithJsonConfig(config, inputQueue):
@@ -536,6 +565,10 @@ def suicide():
     os.kill(os.getpid(), signal.SIGKILL)
 
 if __name__ == "__main__":
+    """
+    The Worker can be launched directly, the configuration must be given in stdin in a single json line
+    """
+    
     worker = None   
     run = True
 
