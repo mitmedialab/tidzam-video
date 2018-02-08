@@ -363,7 +363,7 @@ class Worker(object):
                 self.globalOutputLock.wait()
                 debug("Exiting Global Network Wait...",3)
             
-        debug("Done waiting for network synchronization", 3)
+        #debug("Done waiting for network synchronization", 3)
 
     def _duplicateOverNetwork(self, p):
         for sock in self.outputs:

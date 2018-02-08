@@ -53,8 +53,8 @@ class Supervisor():
         debug("[STOP] Closing server")
         self.server.close()
         
-        debug("[STOP] Terminating in 1 sec")
-        time.sleep(1)
+        debug("[STOP] Terminating in 0.25 sec")
+        time.sleep(.25)
             
         suicide()
     

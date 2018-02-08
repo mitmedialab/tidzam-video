@@ -1,21 +1,15 @@
+import copy
 import json
 from multiprocessing import Queue
 from os import listdir
 import os
-from os.path import isfile
-import traceback
-#import utils.custom_logging.#profiler as #prof
-import psutil
-
-import PIL.Image as Image
-import copy
-import numpy as np
-import subprocess as sp
 from utils.config_checker import checkConfigSanity
 from utils.custom_logging import debug, _DEBUG_LEVEL
+from utils.streamer import *
 from worker import Job
 
 
+#import utils.custom_logging.#profiler as #prof
 def read(fil):
     fd = open(fil, "r")
     d = ""
@@ -31,7 +25,7 @@ def checkMultiStreamerConfigSanity(cfgTxt):
     return checkConfigSanity(cfgTxt, [], ["stream", "options", "folders"])
     
 def checkStreamerConfigSanity(cfgTxt):
-    return checkConfigSanity(cfgTxt, ["name"], ["url", "path", "resolution", "recursive"])
+    return checkConfigSanity(cfgTxt, ["name"], ["url", "path", "resolution", "recursive", "realtime"])
 
 def getWithDefault(obj, propName, default = None):
     try:
@@ -42,21 +36,6 @@ def getWithDefault(obj, propName, default = None):
         except:
             return default
 
-def resTextToTuple(resText):
-    separators = ["x", ":", ";", "/"]
-    
-    for sep in separators:
-        a = resText.split(sep)
-        if(len(a) != 2):
-            continue
-        
-        try:
-            x, y = int(a[0]), int(a[1])
-            return (x, y)
-        except:
-            continue
-        
-    return None
         
 
 class Multistreamer(Job):
@@ -65,6 +44,7 @@ class Multistreamer(Job):
     DEFAULT_IMG_RATE_TAG = "default_img_rate"
     MAX_STREAMERS_TAG = "max_streamers"
     VIDEO_EXTENSION_TAG = "video_extensions"
+    REALTIME_TAG = "realtime"
     
     def destroy(self):
         self._shutdownAllStreamers()
@@ -88,7 +68,8 @@ class Multistreamer(Job):
             self.DEFAULT_IMG_RATE_TAG:8,
             self.DEFAULT_RESOLUTION_TAG: (800,600),
             self.MAX_STREAMERS_TAG: 10,
-            self.VIDEO_EXTENSION_TAG: ".mp4;.avi"
+            self.VIDEO_EXTENSION_TAG: ".mp4;.avi",
+            self.REALTIME_TAG: 1
         }
         
         self.setGlobalOptions(getWithDefault(self.cfg, "options"))
@@ -121,6 +102,7 @@ class Multistreamer(Job):
                 if(os.path.splitext(file)[1] in self.options[self.VIDEO_EXTENSION_TAG]):
                     info = copy.copy(streamerInfo)
                     info['path'] = file
+                    info['name'] = info['name']+os.path.basename(file)
                     self.streamerStartQueue.put(info)
                     debug("Found: "+file, 3)
             else:
@@ -158,12 +140,17 @@ class Multistreamer(Job):
         img_rate   = getWithDefault(streamerInfo, "img_rate", self.options[self.DEFAULT_IMG_RATE_TAG])
         name       = getWithDefault(streamerInfo, "name", "streamer"+str(self.streamerCount))
         location   = getWithDefault(streamerInfo, "url")
+        realtime   = getWithDefault(streamerInfo, "realtime", self.options[self.REALTIME_TAG])
         
         if(location == None):
             location = getWithDefault(streamerInfo, "path")
             
         try:
-            streamer = Streamer(name, location, img_rate, resolution)
+            if(realtime):
+                streamer = RealTimeStreamer(name, location, img_rate, resolution)
+            else:
+                streamer = Streamer(name, location, img_rate, resolution)
+            
         except:
             debug("Cannot start streamer "+name+" ("+str(location)+")", 2, True)
             if(_DEBUG_LEVEL >= 3):
@@ -205,78 +192,3 @@ class Multistreamer(Job):
             } 
     
 
-class Streamer:
-    def __init__(self, name, url, img_rate, resol):
-        #prof.enter("STREAMER")
-        self.name = name
-        self.url = url.strip()
-        self.img_rate = img_rate
-        self.resolution = resol
-        self.resolution = resTextToTuple(self.resolution)
-        self.doResize = type(self.resolution)  == type(())
-        #debug("Starting streamer "+str(name), 3)
-        infos = self.meta_data()
-        self.shape = int(infos['width']),int(infos['height'])
-        self.img_count = 0
-        self.open()
-        
-        debug("Streamer "+str(name)+" ("+str(url)+") opened: img_rate="+str(self.img_rate)+" prefered_resolution="+str(self.resolution)+" original_resolution="+str(self.shape), 3)
-        #prof.exit()
-
-    def meta_data(self):
-        #metadata of interest
-        metadataOI = ['width','height']
-
-        command = ['ffprobe', '-v' , 'error' ,'-show_format' ,'-show_streams' , self.url]
-        
-        
-        pipe  = sp.Popen(command, stdout=sp.PIPE, stderr=sp.PIPE)
-        infos = pipe.communicate()[0]
-        #infos = pipe.stdout.read()
-        infos = infos.decode().split('\n')
-        dic = {}
-        for info in infos:
-            if info.split('=')[0] in metadataOI:
-                dic[info.split('=')[0]] = info.split('=')[1]
-        #pipe.terminate()
-        #print(str(dic))
-        return dic
-    
-    def get_image(self):
-        self.psProcess.resume()
-        raw_image = self.pipe.stdout.read(self.shape[0]*self.shape[1]*3)
-        image = np.fromstring(raw_image,dtype='uint8')
-
-        if image.shape[0] == 0:
-            return None
-
-        image = image.reshape((self.shape[1],self.shape[0],3))
-        
-        
-        self.pipe.stdout.flush()
-        self.psProcess.suspend()
-        
-        if(self.doResize):
-            image = np.array(Image.fromarray(image, 'RGB').resize(self.resolution))
-        
-        self.img_count += 1
-        return image
-
-
-    def open(self):
-        command = ['ffmpeg',
-                   '-i',self.url,
-                   '-r',str(self.img_rate),
-                   '-f','image2pipe',
-                       '-pix_fmt','rgb24',
-                       '-vcodec','rawvideo','-']
-
-        self.pipe = sp.Popen(command,stdout = sp.PIPE,bufsize=10**8)
-        self.psProcess = psutil.Process(pid=self.pipe.pid)
-        self.psProcess.suspend()
-
-    def terminate(self):
-        self.pipe.stdout.flush()
-        self.pipe.terminate()
-       
-    
