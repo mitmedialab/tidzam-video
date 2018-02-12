@@ -24,7 +24,7 @@
     {
       "workername" : "dl",
       "port":	25225,
-      "jobname": "boxer.darknet.boxerjob",
+      "jobname": "identityjob",
       "jobdata":"none",
       "debuglevel": 3,
       "output": ["django"]
