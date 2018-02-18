@@ -14,6 +14,7 @@ The resultst are then sent to a web server for streaming or to the chain API
 
 ## Demo using YOLO v2
 Click on the image below
+
 [![](https://img.youtube.com/vi/lvAROVP-RQ8/0.jpg)](https://www.youtube.com/watch?v=lvAROVP-RQ8)
 
 ## Dependencies 
@@ -158,11 +159,11 @@ The jobs are defined in ``` src/supervisor/jobs ```
 A worker config chunk is as follows:
 ```
    {
-        "workername" : "name",				#The name of the worker
-        "port":	25223,						#The port of this worker
-        "jobname": "multistreamer",				#The job running on this worker
-        "debuglevel": 3,						#The requested debuglevel
-        "jobdata":"cfg/multi_stream_test.json",	#The setup data, depends of the job
+        "workername" : The name of the worker,	
+        "port":	The port of this worker,			
+        "jobname": The job running on this worker,		
+        "debuglevel": The requested loglevel,					
+        "jobdata":The setup data, depends of the job,	
         "outputmethod":"distribute" or "duplicate",	
         "output": [list of output worker name]
      }
@@ -183,8 +184,10 @@ if **duplicate** is used the output will go to all of the listed output workers
   },
 
   "stream": [
-	"name": "camera1",
-	"url":"http://fakepath.truc/pathtocamera1"
+ 	{
+	    "name": "camera1",
+	    "url":"http://fakepath.truc/pathtocamera1"
+	}
   ],
 
   "folders": [
@@ -198,7 +201,44 @@ if **duplicate** is used the output will go to all of the listed output workers
 
 ```
 
-TODO: config explainantion
+This is the multistreamer job configuration. The file path is given as jobdata to the multistreamer
+The frst part are the default options:
+
+```
+  "options": {
+    "default_img_rate":default rate,	
+    "defaut_resolution":default resolution set it to 'auto' to use the resolution from the input
+    "max_streamers":max number of streamers working at the same time	
+    "video_extensions":Extensions to recognize videos when exploring folders
+    "realtime": Skip frames to keep real time video ?
+  },
+```
+
+Then you can set the streamer path, the streamers will be opened first at startup
+
+```
+{
+	"name": name of this stream,
+	"url":"http://fakepath.truc/pathtocamera1",
+	"resolution"; "auto" to keep the original resolution
+	"realtime": 1 to have a realtime stream
+}
+```
+You can specifically define the resolution for each stream
+
+Finally, you can give some folders you would like to analyse, 
+Use the recursive tag to explore sub-folders and set realtime to 0 to miss 0 frames
+
+```
+ {
+      "name":"tidzam-video",
+      "path":"/mnt/fakepath",
+      "realtime":0  to get each frame
+      "recursive": 1 to explore sub folders
+ }
+```
+
+
 
 ## TODO
 - Fix logging level changing
@@ -206,8 +246,8 @@ TODO: config explainantion
 - Write log to files
 - Worker can be started with command line, without supervisor
 - Multistreamer must support *on the fly* video changes
-
-
+- Ensure frame order in djangotranfer
+- Connect to Chain API
 
 
 
