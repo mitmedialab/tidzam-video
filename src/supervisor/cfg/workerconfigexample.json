@@ -1,0 +1,12 @@
+{
+	"name" : "testworker",
+	"port":	25223,
+	"jobname": "streamerjob",
+	"jobdata": "input.mp4",
+	"debuglevel": 3,
+	"output": [
+		"127.0.0.1:11223",
+		"127.0.0.1:23455"
+	]
+
+}

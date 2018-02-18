@@ -1,0 +1,34 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+
+	<title>Home</title>
+	<meta charset="utf-8">
+	{% load staticfiles %}
+	<link rel="stylesheet" href="{% static 'css/style_for_all.css' %}" type='text/css'/>
+	<link rel="stylesheet" href="{% static 'css/style_for_home.css' %}" type='text/css'/>
+	<!-- For icons -->
+	<meta name="viewport" content="width=device-width, initial-scale=1"/>
+	<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css"/>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
+	
+</head>
+<body>
+	<div class="background-image"></div> <!-- We can put modification on the background easier like that -->
+
+	<header>
+		<ul class="header">
+			<li><a href=""><i class="fa fa-home"></i></a></li>
+			<li><a href="/camera/"><i class="fa fa-video-camera"></i></a></li>
+		</ul>
+	</header>
+
+
+	<main-content>
+		<img src="/static/picture/anonymous.png" class="anonymous" >
+	</main-content>
+
+
+</body>
+</html>

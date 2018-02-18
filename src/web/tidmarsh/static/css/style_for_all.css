@@ -1,0 +1,70 @@
+/*----------------------------------------------Background----------------------------------------------*/
+
+
+.background-image{
+	display: block;
+	position: fixed;
+	left: -2;
+	right: 0;
+
+	background: linear-gradient(#4d4d4d, #333);
+	width: 110%;
+	height: 800px;
+
+	z-index: 0;
+}
+
+
+/*----------------------------------------------HEADER----------------------------------------------*/
+
+
+header {
+	position: fixed;
+	width: 100%;
+	top: 0px;
+
+	z-index: 5;
+}
+
+header ul {
+	list-style-type: none;
+	overflow: hidden;
+
+	margin: 0;
+	padding: 0;
+
+	background-color: #333;
+}
+
+header li {
+	float: left;
+}
+
+header li a {
+	display: block;
+
+	text-align: center;
+	padding: 10px 25px;
+
+	color: white;
+	text-decoration: none;
+}
+
+header .fa{           /*For icons*/
+	font-size: 40px;
+}
+
+header li a:hover:not(.active) {
+	background-color: #009933;
+	transition: 0.7s;
+}
+
+
+/*----------------------------------------------Main Content----------------------------------------------*/
+
+
+main-content{
+	position: relative;
+	
+	z-index: 4;
+}

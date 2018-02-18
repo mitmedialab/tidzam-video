@@ -109,3 +109,11 @@ ENV/
 #Tensorflow datas
 src/inception/
 src/log/
+
+src/supervisor/jobs/boxer/NNPACK-darknet/
+
+src/supervisor/jobs/boxer/darknet-nnpack/
+
+src/supervisor/jobs/boxer/ninja/
+
+src/supervisor/jobs/boxer/Makefile
