@@ -40,7 +40,7 @@ cd ..
 
 # Build darknet-nnpack
 git clone https://github.com/thomaspark-pkj/darknet-nnpack.git darknetnnpack
-sudo cp Makefile darknetnnpack
+sudo cp MakefileNNPack darknetnnpack
 cd darknetnnpack
 make
 

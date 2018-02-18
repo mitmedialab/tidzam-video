@@ -107,88 +107,87 @@ class Multistreamer(Job):
                     debug("Found: "+file, 3)
             else:
                 self._recFolderExploration(file, streamerInfo)
-            
-            
+
+
     def _shutdownAllStreamers(self):
         debug("Stopping all streamers", 2)
         for streamer in self.streamers:
             streamer.terminate()
-            
+
 
     def setGlobalOptions(self, cfgOptions):
         if(cfgOptions == None):
             return
         #FIXME overwritting
         self.options = cfgOptions
-        
+
     def _startNewStreamerFromExploration(self):
+        debug("Cycling through videos...", 3)
         try:
             streamerInfo =  self.streamerStartQueue.get(False)
         except:
             return None
-        
+
         try:
             self.startStreamer(streamerInfo)
         except:
             traceback.print_exc()
-    
+
     def startStreamer(self, streamerInfo):
         if(not checkStreamerConfigSanity(json.dumps(streamerInfo))):
-            raise ValueError("Error in configuration")        
-        
+            raise ValueError("Error in configuration")
+
         resolution = getWithDefault(streamerInfo, "resolution", self.options[self.DEFAULT_RESOLUTION_TAG])
         img_rate   = getWithDefault(streamerInfo, "img_rate", self.options[self.DEFAULT_IMG_RATE_TAG])
         name       = getWithDefault(streamerInfo, "name", "streamer"+str(self.streamerCount))
         location   = getWithDefault(streamerInfo, "url")
         realtime   = getWithDefault(streamerInfo, "realtime", self.options[self.REALTIME_TAG])
-        
+
         if(location == None):
             location = getWithDefault(streamerInfo, "path")
-            
+
         try:
             if(realtime):
                 streamer = RealTimeStreamer(name, location, img_rate, resolution)
             else:
                 streamer = Streamer(name, location, img_rate, resolution)
-            
+
         except:
             debug("Cannot start streamer "+name+" ("+str(location)+")", 2, True)
             if(_DEBUG_LEVEL >= 3):
                 traceback.print_exc()
             return
-        
+
         self.streamers.append(streamer)
         self.streamerCount += 1
-    
-    def loop(self, data):    
+
+    def loop(self, data):
         img = None
         while type(img) == type(None):
             if(self.streamerIndex >= len(self.streamers)):
                 self.streamerIndex = 0
-                
+
             if(len(self.streamers) == 0):
                 return None
-            
+
             streamer = self.streamers[self.streamerIndex]
-            
+
             img = streamer.get_image()
             if(type(img) == type(None)):
                 self.streamers.remove(streamer)
                 print("Streamer "+streamer.name+" is done reading")
                 self._startNewStreamerFromExploration()
-                
+
                 if(len(self.streamers) == 0):
                     debug("Reached end of multistreamer job, successfull exit", 2)
                     self.shouldStop = True
                     return None
-                
+
         img2 = np.array(Image.fromarray(img))
-        
+
         self.streamerIndex += 1
         return {
                 "from" : str(streamer.name),
                 "frame_count": str(streamer.img_count),
                 "img": img2
-            } 
-    
-
+            }

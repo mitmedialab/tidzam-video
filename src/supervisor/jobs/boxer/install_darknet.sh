@@ -4,12 +4,6 @@
 #remove previous
 rm -fr darknet
 
-#update
-echo 'Updating system...'
-sudo apt-get update -y
-sudo apt-get install python3-pip git -y
-sudo pip3 install numpy matplotlib scipy pillow 
-
 #install darknet
 echo 'Installing darknet...'
 git clone https://github.com/pjreddie/darknet

@@ -564,15 +564,21 @@ def readerTarget(inputQueue):
 def suicide():
     os.kill(os.getpid(), signal.SIGKILL)
 
+def getJsonFromParameters():
+    sys.argv
+
 if __name__ == "__main__":
     """
     The Worker can be launched directly, the configuration must be given in stdin in a single json line
+    TODO: pass by argv
     """
     
     worker = None   
     run = True
 
-    debug("Ready for input")    
+    
+
+    #debug("Ready for input")    
     inputQueue = Queue()
     
     inputThread = Thread(target = readerTarget, args=(inputQueue,))
