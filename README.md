@@ -2,9 +2,9 @@
 
 ![](imgs/logo.png) 
 
-##Introduction
+## Introduction
 
-This is a projinstaect of 5 students from the ESILV school in France in partnership with the MIT Media Lab.
+This is a project from a team of 5 students from the ESILV school in France in partnership with the MIT Media Lab.
 The goal of the project is to replace the way the wildlife on the Tidmarsh site is currently recognized.
 More informations about Tidmarch can be found at [http://www.livingobservatory.org/](http://www.livingobservatory.org/)  and [http://tidmarsh.media.mit.edu/](http://tidmarsh.media.mit.edu/) 
 
