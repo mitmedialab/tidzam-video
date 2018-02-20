@@ -7,11 +7,13 @@ import websockets
 import asyncio
 import json
 
+import threading
+
 class Djangotransfer(Job):
-    
+
     async def sendImage(self, imagePacket):
         url = "ws://"+self.config['url']
-    
+
         async with websockets.connect(url) as ws:
             debug("Connected to "+str(url), 3)
             #await ws.send(self.config['auth_key'])
@@ -19,27 +21,25 @@ class Djangotransfer(Job):
             await ws.send(json.dumps(imagePacket.data))
             to_send = imagePacket.binObj
             await ws.send(to_send)
-            
+
             debug("Image sent, "+str(len(to_send))+" bytes", 3)
 
 
     def setup(self, data):
-        
+
         self.config = {
-                "url": "127.0.0.1:8000/push/",
+                "url": "127.0.0.1:7894/push/",
                 "auth_key": "5edb6a02bc2c1a6ecd1e2c7f30b80d6f",
             }
-        
-        self.eventLoop = asyncio.new_event_loop()
-        
 
     def loop(self, data):
+        self.eventLoop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.eventLoop)
+
         self.eventLoop.run_until_complete(self.sendImage(data))
-        
+
     def destroy(self):
         pass
-    
+
     def requireData(self):
         return True
-  
-        
