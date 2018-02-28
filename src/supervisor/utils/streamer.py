@@ -27,29 +27,29 @@ from threading import Thread
 
 def resTextToTuple(resText):
     separators = ["x", ":", ";", "/"]
-    
+
     for sep in separators:
         a = resText.split(sep)
         if(len(a) != 2):
             continue
-        
+
         try:
             x, y = int(a[0]), int(a[1])
             return (x, y)
         except:
             continue
-        
+
     return None
 
 
 
 class Streamer:
-    
+
     """
     The streamer uses ffmpeg to get imags from a video or a url
     Here, each call to get_image will get the next frame in the given source
     """
-    
+
     def __init__(self, name, url, img_rate, resol):
         self.name = name
         self.url = url.strip()
@@ -62,17 +62,18 @@ class Streamer:
         self.shape = int(infos['width']),int(infos['height'])
         self.img_count = 0
         self.open()
-        
+        self.previous_tmp = None
+
         debug("Streamer "+str(name)+" ("+str(url)+") opened: img_rate="+str(self.img_rate)+" prefered_resolution="+str(self.resolution)+" original_resolution="+str(self.shape), 3)
         #prof.exit()
 
     def meta_data(self):
         #metadata of interest
         metadataOI = ['width','height']
-        
+
         command = ['ffprobe', '-v' , 'error' ,'-show_format' ,'-show_streams' , self.url]
-        
-        
+
+
         pipe  = sp.Popen(command, stdout=sp.PIPE, stderr=sp.PIPE)
         infos = pipe.communicate()[0]
         #infos = pipe.stdout.read()
@@ -84,27 +85,31 @@ class Streamer:
         #pipe.terminate()
         #print(str(dic))
         return dic
-    
-    
+
+
     def get_image(self):
         self.psProcess.resume()
         size = self.shape[0]*self.shape[1]*3
-        
+
         raw_image = self.pipe.stdout.read(size)
         image = np.fromstring(raw_image,dtype='uint8')
+
+        if (np.array_equal(self.previous_tmp, image) ):
+            print("\n\nICICIC IDEAN \n\n")
+        self.previous_tmp = image
 
         if image.shape[0] == 0:
             return None
 
         image = image.reshape((self.shape[1],self.shape[0],3))
-        
-        
+
+
         self.pipe.stdout.flush()
         self.psProcess.suspend()
-        
+
         if(self.doResize):
             image = np.array(Image.fromarray(image, 'RGB').resize(self.resolution))
-        
+
         self.img_count += 1
         return image
 
@@ -126,30 +131,30 @@ class Streamer:
     def terminate(self):
         self.pipe.stdout.flush()
         self.pipe.terminate()
-        
-        
-        
+
+
+
 class RealTimeStreamer(Streamer):
     """
     The real time streamer works like the regular Streamer but skips over frames
     and return an image keeping Real-time impression (laggy but on time)
     """
-    
+
     def __init__(self, name, url, img_rate, resol):
         Streamer.__init__(self, name, url, img_rate, resol)
         self.lock = Lock()
         self.loadingLock = Lock()
         self.loadingLock.acquire()
-        
+
         self.currentImage = None
         self.loading = True
-        
+
         Thread(target=self._imageGetterTarget, daemon=True).start()
-       
+
     def _imageGetterTarget(self):
         while(True):
             img = Streamer.get_image(self)
-           
+
             self.lock.acquire()
             self.currentImage = img
             try:
@@ -157,24 +162,20 @@ class RealTimeStreamer(Streamer):
             except:
                 pass
             self.lock.release()
-            
+
             if(type(img) == type(None)):
                 return
-        
-    
+
+
     def get_image(self): #get self.currentImage safely and in a consistent way regarding Streamer
         if(self.loading):
             self.loadingLock.acquire() #wait for loading
             self.loading = False
-        
+
         self.lock.acquire()
-            
+
         i = self.currentImage
-        
+
         self.lock.release()
-        
-        return i 
-        
-        
-        
-        
+
+        return i

@@ -29,13 +29,13 @@ def checkConfigSanity(cfg, MANDATORY, OPTIONAL):
                     raise ValueError("Missing mandatory parameter: "+str(k))
 
         except ValueError as ve:
-            debug("Error in configuration: "+str(ve), 0, True)
+            error("Error in configuration: "+str(ve), 0)
             return False
         except json.JSONDecodeError:
-            debug("Error in configuration: The provided configuration is not valid", 0, True)
+            error("Error in configuration: The provided configuration is not valid", 0)
             return False
         except:
-            debug("Error when checking config sanity", 0, True)
+            error("Error when checking config sanity", 0)
             traceback.print_exc()
             return False
 

@@ -17,8 +17,7 @@ import numpy as np
 from threading import Event
 from network import Packet
 
-from utils.custom_logging import debug
-from utils.custom_logging import _DEBUG_LEVEL
+from utils.custom_logging import _DEBUG_LEVEL, debug, error, warning
 from utils import custom_logging
 import signal
 from multiprocessing.queues import Empty
@@ -63,15 +62,15 @@ class Worker(object):
         self.inputConnections = {} #sock: chan
         self.inputQueue = Queue(50)
         self.outputQueue = Queue(50)
-        
+
         self.outputWorkerLocks = {} #sock: Event
         self.globalOutputLock = Event()
         self.outputs = {} #sock: chan
-        
+
         self.server = None
         self.jobThread = None
-        
-        self._inputQueue = inputQueue #stdin input 
+
+        self._inputQueue = inputQueue #stdin input
         self._exitCode = None
         self._startNetwork()
 
@@ -107,7 +106,7 @@ class Worker(object):
         except:
             pass
         return False
-    
+
     def action_halt(self):
         debug("[HALT] Halting !", 0)
         suicide()
@@ -123,31 +122,31 @@ class Worker(object):
             shortName = jobName.split(".")[-1]
             jobCl = getattr(mod, shortName.capitalize())
 
-            debug("[WARN] WARNING: Skipped subclass test", 0, True)
+            warning("Skipped subclass test", 0)
             '''if(not issubclass(jobCl, Job)):
-                debug("The given job class is not a Job", 0, True)
-                debug("It is "+str(jobCl))
+                error("The given job class is not a Job", 0)
+                error("It is "+str(jobCl))
                 self.job = None
                 return '''
 
                 #difference btwn import error & load error
             self.job = jobCl.__new__(jobCl)
             self.job.__init__()
-            
+
             debug("Job loaded", 1)
 
         except:
             if(_DEBUG_LEVEL == 3):
                 traceback.print_exc()
-            debug("Could not load job", 1, True)
+            error("Could not load job", 1)
             self.stop(1)
 
     def updateWithDiff(self, config):
         if(self.checkAction(config)):
             return
-        
+
         debug("Updating worker...")
-      
+
         #update port
         if(int(self.server.getsockname()[1]) != int(config['port'])):
             p = int(config['port'])
@@ -155,7 +154,7 @@ class Worker(object):
             self.port = p
             self._closeSock(self.server)
             self._startListener()
-        
+
         #update job
         if(config['jobname'] != self.jobName):
             debug("Replacing job")
@@ -163,21 +162,21 @@ class Worker(object):
                 if(config['jobreplacemethod'] == "kill"):
                     self.job.shouldStop = True
                     debug("Asked for Job stop")
-            
+
             debug("Waiting for job shutdown...")
             if(self.jobThread != None):
                 self.jobThread.join()
-            
+
             debug("Installing new job...")
             jobName = config["jobname"]
             jobData = config["jobdata"]
             self.loadJob(jobName)
             self.setupJobAndLaunch(jobData)
 
-        #update network dispatch method      
+        #update network dispatch method
         self.setNetworkMethod(config)
         #TODO plug
-            
+
     def setNetworkMethod(self, config):
         if("outputmethod" in config):
             if(config['outputmethod'] == "distribute"):
@@ -185,7 +184,7 @@ class Worker(object):
                 self.outputmethod = self._distributeOverNetwork
             else:
                 debug("Output method is set to duplication")
-                self.outputmethod = self._duplicateOverNetwork 
+                self.outputmethod = self._duplicateOverNetwork
 
     def setupJobAndLaunch(self, data):
         self.setupJob(data)
@@ -204,23 +203,23 @@ class Worker(object):
         self.listeningThread = Thread(target=self._listenTarget, daemon = True)
         self.listeningThread.start()
 
-    def _startNetwork(self):    
+    def _startNetwork(self):
         self.brokenOutputs = []
         self._startListener()
-        
+
         self.netOutThread = Thread(target=self._clientOutTarget, daemon = True)
         self.netOutThread.start()
-       
-        
+
+
     def launchJob(self):
         if(self.job == None):
             raise ValueError("This worker has no job")
-    
+
         if(self.jobRunning.value):
             raise AssertionError("Process already running")
 
         self.jobRunning.value = True
-        
+
         self.jobThread = Thread(target=self._launchTarget, daemon = True)
         self.jobThread.start()
 
@@ -245,16 +244,16 @@ class Worker(object):
                 if(client != None):
                     debug("Input from: "+str(addr), 1)
                     Thread(target=self._clientInTarget, args=(client,), daemon = True).start()
-                   
+
 
         except:
             if(self.workerShutdown.value):
                 return
-            
+
             traceback.print_exc()
             if(not self.jobRunning.value):
                 return
-        
+
 
     def _clientInTarget(self, sock):
         binChan = sock.makefile("wrb") #w for sending back ack
@@ -285,14 +284,14 @@ class Worker(object):
         """
         Sends the Packets to the plugged Workers
         """
-        
-        while( (not self.workerShutdown.value or self.jobRunning.value) or not self.outputQueue.empty()):       
-            
+
+        while( (not self.workerShutdown.value or self.jobRunning.value) or not self.outputQueue.empty()):
+
             try:
                 p = self.outputQueue.get(timeout = 1)
             except Empty:
                 continue
-                      
+
             if(len(self.outputs) == 0):
                 debug("Got output data but nothing is plugged", 1)
                 print(str(p)) #FIXME
@@ -300,50 +299,50 @@ class Worker(object):
 
             self.outputmethod(p)
             self._outputsClean()
-            
+
     def _outputsClean(self):
         for sock in self.brokenOutputs:
             del self.outputs[sock]
             del self.outputWorkerLocks[sock]
-            
+
         self.brokenOutputs.clear()
 
     def _sendJobCompletionAck(self):
         for chan in self.inputConnections.values():
             chan.write(b'a') #whatever
             chan.flush()
-    
+
     def _childWorkerAckTarget(self, sock):
         """
         Receives Acknoledgement info: the transmitted Packed has been processed and its ok to send another
         """
-        
+
         debug("Started ChildWorkerNetworkACK", 3)
         binChan = sock.makefile("rb")
         try:
             while(not self.workerShutdown.value):
                 if(binChan.read(1) != b'a'): #magic value
                     raise ValueError("Wrong ack value")
-                
+
                 self.outputWorkerLocks[sock].set()
                 debug("Ack from "+str(sock.getpeername()), 3)
                 #Let the unblock if it is a distribute network bahaviour
                 self.globalOutputLock.set()
-                
-        
+
+
         except:
             if(_DEBUG_LEVEL == 3):
                 traceback.print_exc()
             debug("Output network callback error", 0, True)
             self._closeSock(sock)
             return
-        
-        
-    ## Network strategies: 
-    #duplicate: send to all the plugged workers regardless of the availability (the output/input queue grows)
-    #distribute: send to an available worker only suspending the job if none os found at the moment 
 
-    def _checkNetworkOutputStatus(self):        
+
+    ## Network strategies:
+    #duplicate: send to all the plugged workers regardless of the availability (the output/input queue grows)
+    #distribute: send to an available worker only suspending the job if none os found at the moment
+
+    def _checkNetworkOutputStatus(self):
         if(self.outputmethod == self._duplicateOverNetwork):
             #duplicate: wait for all
             for evt in self.outputWorkerLocks.values():
@@ -357,29 +356,29 @@ class Worker(object):
                 if(e.is_set()):
                     flag = False
                     break
-            
+
             if(flag):
                 debug("Entering Global Network Wait...",3)
                 self.globalOutputLock.wait()
                 debug("Exiting Global Network Wait...",3)
-            
+
         #debug("Done waiting for network synchronization", 3)
 
     def _duplicateOverNetwork(self, p):
         for sock in self.outputs:
             self._sendTo(sock, p)
-    
+
     def _distributeOverNetwork(self, p):
         for sock in self.outputs:
             if(self.outputWorkerLocks[sock].is_set()):
                 self._sendTo(sock, p)
                 break
-        
+
     def _sendTo(self, sock, p):
         binChan = self.outputs[sock]
         try:
             p.send(binChan)
-            
+
             #Network lock management
             self.outputWorkerLocks[sock].clear()
             self.globalOutputLock.clear()
@@ -422,7 +421,7 @@ class Worker(object):
                 self.inputQueue.get_nowait()
         except Empty:
             return
-    
+
     def _doJob(self):
         '''
         Runs the job with input and output
@@ -431,25 +430,25 @@ class Worker(object):
         while(not self.job.shouldStop and self.jobRunning.value):
             data = None
             if(self.job.requireData()):
-                
+
                 #FIXME: new network archi
                 if(self.job.allowDrop() and self.inputQueue.full()):
                     self._clearInputQueue()
                     debug("Input queue overflow", 0, True)
-                    
+
                 data = self.inputQueue.get()
 
             out = self.job.loop(data)
 
             self._sendJobCompletionAck()
-            self._checkNetworkOutputStatus() #FIXME parameter 
+            self._checkNetworkOutputStatus() #FIXME parameter
 
             if(type(out) != type(None)):
                 p = None
-                   
+
                 if(isinstance(out, Packet)):
                     p = out
-                else:    
+                else:
                     p = Packet()
                     if(isinstance(out, np.ndarray)):
                         p["img"] = out
@@ -459,9 +458,9 @@ class Worker(object):
                                 p[key] = out[key]
                         else:
                             raise TypeError('Can only handle a Packet, npArray & np array dict')
-                    
+
                 self.outputQueue.put(p) #Packets to be sent
-                
+
 
         self.job.destroy()
         #self.jobRunning.value = False
@@ -475,7 +474,7 @@ class Worker(object):
             debug("Error from job thread", 0, True)
             traceback.print_exc()
             self.stop(1)
-   
+
 
 class Job(object):
     '''
@@ -508,7 +507,7 @@ class Job(object):
         Does this job requires data to run?
         """
         return False
-    
+
     def allowDrop(self):
         """
         Allow Packets to be dropped if this job is too slow
@@ -516,13 +515,13 @@ class Job(object):
         return True
 
 def setupWithJsonConfig(config, inputQueue):
-    #Worker setup    
+    #Worker setup
     if(not "workername" in config.keys()):
         raise ValueError("Workername is not set")
     name = str(config["workername"])
     sys.stdout = SupervisedProcessStream(sys.stdout, name)
     sys.stderr = SupervisedProcessStream(sys.stderr, name)
-    
+
     debug("Worker name is "+name)
 
     port = int(config["port"])
@@ -541,7 +540,7 @@ def setupWithJsonConfig(config, inputQueue):
     worker = Worker(port, inputQueue)
     worker.name = name
     worker.loadJob(jobName)
-    
+
     worker.setNetworkMethod(config)
 
     if("output" in config):
@@ -558,9 +557,9 @@ def setupWithJsonConfig(config, inputQueue):
 
 def readerTarget(inputQueue):
     while True:
-        line = input().strip() 
+        line = input().strip()
         inputQueue.put(line)
-        
+
 def suicide():
     os.kill(os.getpid(), signal.SIGKILL)
 
@@ -572,22 +571,22 @@ if __name__ == "__main__":
     The Worker can be launched directly, the configuration must be given in stdin in a single json line
     TODO: pass by argv
     """
-    
-    worker = None   
+
+    worker = None
     run = True
 
-    
 
-    #debug("Ready for input")    
+
+    #debug("Ready for input")
     inputQueue = Queue()
-    
+
     inputThread = Thread(target = readerTarget, args=(inputQueue,))
     inputThread.daemon = True
     inputThread.start()
 
     while(run):
         try:
-            
+
             try:
                 line = inputQueue.get()
             except: #Queue has been closed
@@ -597,25 +596,25 @@ if __name__ == "__main__":
                 else:
                     debug("[WARNING] Caught CTRL+C event, stopping")
                     code = 35
-                    
+
                 sys.exit(code)
-                
+
             # getting input
             #-------------------------------------
             # handling input
-                     
+
             config = json.loads(line)
-            
+
             if(worker == None):
                 worker = setupWithJsonConfig(config, inputQueue)
             else:
                 worker.updateWithDiff(config)
-        
+
         except SystemExit as e:
             raise e #must be transmitted
         except:
             worker = None
             run = False
-            debug("Uncaught exception, abort", 0, True)
+            error("Uncaught exception, abort", 0)
             traceback.print_exc()
             suicide() #cannot stay in this state

@@ -13,17 +13,17 @@ from worker import Job
 def read(fil):
     fd = open(fil, "r")
     d = ""
-    
+
     for k in fd:
         d += k.strip()
-        
+
     fd.close()
-    
+
     return d
 
 def checkMultiStreamerConfigSanity(cfgTxt):
     return checkConfigSanity(cfgTxt, [], ["stream", "options", "folders"])
-    
+
 def checkStreamerConfigSanity(cfgTxt):
     return checkConfigSanity(cfgTxt, ["name"], ["url", "path", "resolution", "recursive", "realtime"])
 
@@ -36,34 +36,34 @@ def getWithDefault(obj, propName, default = None):
         except:
             return default
 
-        
+
 
 class Multistreamer(Job):
-    
+
     DEFAULT_RESOLUTION_TAG = "defaut_resolution"
     DEFAULT_IMG_RATE_TAG = "default_img_rate"
     MAX_STREAMERS_TAG = "max_streamers"
     VIDEO_EXTENSION_TAG = "video_extensions"
     REALTIME_TAG = "realtime"
-    
+
     def destroy(self):
         self._shutdownAllStreamers()
-    
+
     def setup(self, data):
         debug("Starting Multi Streamer...", 2)
         debug("Using config file: "+str(data), 3)
         cfgTxt = read(str(data))
         debug(cfgTxt, 3)
-        
+
         debug("Checking multistreamer config sanity...", 2)
         if(not checkMultiStreamerConfigSanity(cfgTxt)): # pass this point the configuration is considered acceptable
             raise ValueError("Error in configuration")
-         
+
         self.cfg = json.loads(cfgTxt)
-        
+
         self.streamerCount = 0
         self.streamerIndex = 0
-        
+
         self.options =  {
             self.DEFAULT_IMG_RATE_TAG:8,
             self.DEFAULT_RESOLUTION_TAG: (800,600),
@@ -71,30 +71,30 @@ class Multistreamer(Job):
             self.VIDEO_EXTENSION_TAG: ".mp4;.avi",
             self.REALTIME_TAG: 1
         }
-        
+
         self.setGlobalOptions(getWithDefault(self.cfg, "options"))
         debug("Config loaded succesfully", 3)
         self.streamers = []
         self.streamerStartQueue = Queue()
-        
+
         debug("Starting streamers...", 3)
-    
+
         if('stream'in self.cfg):
             for streamerInfo in self.cfg['stream']:
                 self.startStreamer(streamerInfo)
-            
+
         if('folders' in self.cfg):
             #prof.enter("FOLDER_EXPLORATION")
             debug("Starting folder exploration...", 3)
             for streamerInfo in self.cfg['folders']:
                 if(getWithDefault(streamerInfo, "recursive")):
                     self._recFolderExploration(streamerInfo['path'], streamerInfo)
-                
-            #prof.exit()    
+
+            #prof.exit()
             while(self.streamerCount < self.options[self.MAX_STREAMERS_TAG] and not self.streamerStartQueue.empty()):
                 self._startNewStreamerFromExploration()
-                
-                
+
+
     def _recFolderExploration(self, folderPath, streamerInfo):
         for b in listdir(folderPath):
             file = os.path.abspath(folderPath)+os.path.sep+b
@@ -153,7 +153,7 @@ class Multistreamer(Job):
                 streamer = Streamer(name, location, img_rate, resolution)
 
         except:
-            debug("Cannot start streamer "+name+" ("+str(location)+")", 2, True)
+            error("Cannot start streamer "+name+" ("+str(location)+")", 2)
             if(_DEBUG_LEVEL >= 3):
                 traceback.print_exc()
             return

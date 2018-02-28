@@ -9,27 +9,27 @@ import os
 import PIL.Image as Image
 
 class Streamerjob(Job):
-    
+
     def setup(self, data):
         self.streamer = None
         self.streamer = Streamer(data, 8)
         print("Started streamer")
-    
+
     def loop(self, data):
         img = self.streamer.get_image()
         if(type(img) == type(None)):
             self.shouldStop = True
             print("Done reading")
             return None
-        
+
         img2 = Image.fromarray(img)
         img2 = img2.resize((800,600))
         return np.array(img2)
-    
+
     def destroy(self):
         self.streamer.terminate()
-        return 
-    
+        return
+
 
 class Streamer:
     def __init__(self,url,img_rate):
@@ -44,8 +44,6 @@ class Streamer:
         metadataOI = ['width','height']
 
         command = ['ffprobe', '-v' , 'error' ,'-show_format' ,'-show_streams' , self.url]
-        
-        
         pipe  = sp.Popen(command, stdout=sp.PIPE, stderr=sp.PIPE)
         print(str(pipe.pid))
         infos = pipe.communicate()[0]
@@ -58,7 +56,8 @@ class Streamer:
         #pipe.terminate()
         #print(str(dic))
         return dic
-    
+
+
     def get_image(self):
         self.psProcess.resume()
         raw_image = self.pipe.stdout.read(self.shape[0]*self.shape[1]*3)
@@ -89,15 +88,14 @@ class Streamer:
     def terminate(self):
         self.pipe.stdout.flush()
         self.pipe.terminate()
-        
+
 
 if(__name__ == "__main__"):
     print(os.getcwd())
     streamerjob = Streamerjob()
     streamerjob.setup()
     streamerjob.loop("input.mp4")
-    
+
     while True:
         i = streamerjob.loop(None)
         print(str(i))
-    
