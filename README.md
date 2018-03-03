@@ -69,7 +69,7 @@ this will disable gpu usage
 - Run ``` scripts/start_supervisor.sh ``` to start the supervisor on this pc
 - Run ``` scripts/start_local.sh ``` to start the local instance (everything on this pc)
 **Tid'Zam video is now running**
-
+ 
 ## Configuration
 
 Config files are in ``` src/supervisor/cfg ```
