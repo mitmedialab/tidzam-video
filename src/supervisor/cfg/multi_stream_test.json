@@ -3,23 +3,18 @@
   "options": {
     "default_img_rate":60,
     "defaut_resolution":"800x600",
-    "max_streamers":5,
+    "max_streamers":2,
     "video_extensions": ".mp4;.avi",
-    "realtime": 1
+    "realtime": 0
 
   },
-
-  "stream": [
-
-  ],
 
   "folders": [
     {
       "name":"tidzam-video",
-      "path":"data",
+      "path":"/opt/video-tmp/",
       "recursive":1
-    }
-
+}
   ]
 
 

@@ -1,0 +1,48 @@
+
+<link rel="stylesheet" href="//code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
+<script src="//code.jquery.com/jquery-1.10.2.js"></script>
+<script src="//code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
+
+<script src="video-browser.js"></script>
+
+<style>
+#video_list{
+  text-align:center;
+}
+
+.video_div{
+
+}
+</style>
+
+<script language="javascript">
+
+
+var loadImage = function(packet) {
+  var urlCreator  = window.URL || window.webkitURL;
+  var imageUrl    = urlCreator.createObjectURL(packet.img);
+  var video_name  = "video_"+packet.meta.from.replace(/\./g,"_").replace(/-/g,"_").replace(/ /g,"_")
+
+  console.log(packet.meta)
+  if(!$("#"+video_name).get(0)){
+    var img = $('<div class="video_div"><img id="'+video_name+'"><br><span>'+packet.meta.from+' ('+packet.meta.shape+')</span><div>'); //Equivalent: $(document.createElement('img'))
+    img.attr('src', imageUrl);
+    img.appendTo('#video_list');
+  }
+  $("#"+video_name).attr('src', imageUrl);
+}
+
+
+var socket = new WebSocket("ws://" + window.location.host + ":8765");
+socket.binaryType = 'blob' // 'blob' //or ArrayBuffer
+socket.onmessage = function(e){
+  //alert(e.data);
+  var reader = new FileReader();
+  reader.onload  = function() {
+    loadImage(bson_decode(this.result))
+    }
+  reader.readAsArrayBuffer(e.data);
+  }
+</script>
+
+<div id="video_list"></div>

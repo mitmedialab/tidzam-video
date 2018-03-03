@@ -4,7 +4,7 @@ from multiprocessing import Queue
 from os import listdir
 import os
 from utils.config_checker import checkConfigSanity
-from utils.custom_logging import debug, _DEBUG_LEVEL
+from utils.custom_logging import debug,error,warning, _DEBUG_LEVEL
 from utils.streamer import *
 from worker import Job
 

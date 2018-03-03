@@ -5,8 +5,6 @@
       "name":"mypc",
       "address":"127.0.0.1"
     }
-
-
   ],
 
 "workers": {
@@ -14,30 +12,35 @@
   "mypc": [
     {
       "workername" : "django",
-      "port":	25224,
-      "jobname": "djangotransfer",
+      "port":	25230,
+      "jobname": "socketIO",
       "jobdata":"none",
       "debuglevel": 3
     },
-
-
     {
-      "workername" : "dl",
+      "workername" : "showjob",
+      "port":	25224,
+      "jobname": "showjob",
+      "jobdata":"none",
+      "debuglevel": 0
+    },
+    {
+      "workername" : "dl1",
       "port":	25225,
       "jobname": "boxer.darknet.boxerjob",
       "jobdata":"none",
-      "debuglevel": 3,
-      "output": ["django"]
+      "debuglevel": 0,
+      "output": ["showjob", "django"]
     },
     {
 
       "workername" : "streamer",
       "port":	25223,
       "jobname": "multistreamer",
-      "debuglevel": 3,
+      "debuglevel": 0,
       "jobdata":"cfg/multi_stream_test.json",
       "outputmethod":"distribute",
-      "output": ["dl"]
+      "output": ["dl1"]
     }
     ]
   }

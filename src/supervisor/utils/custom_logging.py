@@ -45,8 +45,6 @@ class Profiler():
 
         return txt+") "
 
-
-
 def _getTB():
     tb = traceback.extract_stack()
     s = tb[len(tb) -3]
@@ -54,6 +52,14 @@ def _getTB():
     #print(str(traceback.extract_stack()))
     name = "line n°"+str(s.lineno) if s.name == '<module>' else s.name
     return "("+os.path.basename(s.filename)+" > "+name+") "
+
+
+def ok(msg, level = 0 ):
+    if(level <= _DEBUG_LEVEL):
+        stream = sys.stdout
+        sts = "\t[\033[32mOK\033[0m] "
+        stream.write(sts + msg+"\n")
+        stream.flush()
 
 def debug(msg, level = 1):
     if(level <= _DEBUG_LEVEL):
