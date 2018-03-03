@@ -1,12 +1,11 @@
-# Tid'Zam Video 
+# Tid'Zam Video
 
-![](imgs/logo.png) 
+![](imgs/logo.png)
 
 ## Introduction
 
-This is a project from a team of 5 students from the ESILV school in France in partnership with the MIT Media Lab.
 The goal of the project is to replace the way the wildlife on the Tidmarsh site is currently recognized.
-More informations about Tidmarch can be found at [http://www.livingobservatory.org/](http://www.livingobservatory.org/)  and [http://tidmarsh.media.mit.edu/](http://tidmarsh.media.mit.edu/) 
+More informations about Tidmarch can be found at [http://www.livingobservatory.org/](http://www.livingobservatory.org/)  and [http://tidmarsh.media.mit.edu/](http://tidmarsh.media.mit.edu/)
 
 This project's aim is to create an environement to process real time video and video from folders (archives videos) to be processed
 The processing part consists in identifying accuraltely the spicies in the given frame
@@ -17,14 +16,14 @@ Click on the image below
 
 [![](https://img.youtube.com/vi/lvAROVP-RQ8/0.jpg)](https://www.youtube.com/watch?v=lvAROVP-RQ8)
 
-## Dependencies 
+## Dependencies
 
 - Python 3.5+
 - Numpy
 - PIL
 - django for webserver
 - ffmpeg and ffprobe
-- matplotlib for debugging (showing images) 
+- matplotlib for debugging (showing images)
 - CUDA and cudNN are **optional** but will trigger errors in *Darknet Job installation* if not present
 
 
@@ -38,7 +37,7 @@ For python dependencies, run
 For ffmpeg
 ```
 sudo apt-get install ffmpeg
-```	
+```
 **If you plan on using the processing part you will have to install the darknet job, see below**
 #### Darknet Job installation
 Run the installation script from project root:
@@ -46,7 +45,7 @@ Run the installation script from project root:
 sudo ./install_boxer_job.sh
 ```
 
-**NOTE**: If CUDA or CUDNN are not installed properly you will notice errors when building. To use CPU computation (hence no cuda or cudnn) use the following header in 
+**NOTE**: If CUDA or CUDNN are not installed properly you will notice errors when building. To use CPU computation (hence no cuda or cudnn) use the following header in
 >src/supervisor/jobs/boxer/MakefileDarknet
 
 before running the install_boxer_job.sh script
@@ -93,7 +92,7 @@ The default is:
 "workers": {
 
   "mypc": [
-    
+
       {
         "workername" : "django",
         "port":	25224,
@@ -110,7 +109,7 @@ The default is:
         "debuglevel": 3,
         "output": ["django"]
       },
-      
+
       {
         "workername" : "streamer",
         "port":	25223,
@@ -159,12 +158,12 @@ The jobs are defined in ``` src/supervisor/jobs ```
 A worker config chunk is as follows:
 ```
    {
-        "workername" : The name of the worker,	
+        "workername" : The name of the worker,
         "port":	The port of this worker,			
         "jobname": The job running on this worker,		
         "debuglevel": The requested loglevel,					
-        "jobdata":The setup data, depends of the job,	
-        "outputmethod":"distribute" or "duplicate",	
+        "jobdata":The setup data, depends of the job,
+        "outputmethod":"distribute" or "duplicate",
         "output": [list of output worker name]
      }
 ```
@@ -206,9 +205,9 @@ The frst part are the default options:
 
 ```
   "options": {
-    "default_img_rate":default rate,	
+    "default_img_rate":default rate,
     "defaut_resolution":default resolution set it to 'auto' to use the resolution from the input
-    "max_streamers":max number of streamers working at the same time	
+    "max_streamers":max number of streamers working at the same time
     "video_extensions":Extensions to recognize videos when exploring folders
     "realtime": Skip frames to keep real time video ?
   },
@@ -226,7 +225,7 @@ Then you can set the streamer path, the streamers will be opened first at startu
 ```
 You can specifically define the resolution for each stream
 
-Finally, you can give some folders you would like to analyse, 
+Finally, you can give some folders you would like to analyse,
 Use the recursive tag to explore sub-folders and set realtime to 0 to miss 0 frames
 
 ```
@@ -248,15 +247,3 @@ Use the recursive tag to explore sub-folders and set realtime to 0 to miss 0 fra
 - Multistreamer must support *on the fly* video changes
 - Ensure frame order in djangotranfer
 - Connect to Chain API
-
-
-
-
-
-
-
-
-
-
-
-
