@@ -104,6 +104,7 @@ class Worker(object):
                 action()
                 return True
         except:
+            warning("Unknown action.")
             pass
         return False
 
@@ -138,7 +139,7 @@ class Worker(object):
         except:
             if(_DEBUG_LEVEL == 3):
                 traceback.print_exc()
-            error("Could not load job", 1)
+            error("Could not load job")
             self.stop(1)
 
     def updateWithDiff(self, config):
@@ -471,7 +472,7 @@ class Worker(object):
         try:
             self._doJob()
         except:
-            debug("Error from job thread", 0, True)
+            debug("Error from job thread", 0)
             traceback.print_exc()
             self.stop(1)
 
