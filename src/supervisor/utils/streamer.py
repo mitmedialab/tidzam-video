@@ -62,7 +62,7 @@ class Streamer:
         self.shape = int(self.meta['width']),int(self.meta['height'])
         self.img_count = 0
         self.open()
-        self.previous_tmp = None
+        self.raw_image_prev = None
 
         debug("Streamer "+str(name)+" ("+str(url)+") opened: img_rate="+str(self.img_rate)+" prefered_resolution="+str(self.resolution)+" original_resolution="+str(self.shape), 2)
         #prof.exit()
@@ -94,11 +94,14 @@ class Streamer:
         size = self.shape[0]*self.shape[1]*3
 
         raw_image = self.pipe.stdout.read(size)
+        while np.array_equal(self.raw_image_prev, raw_image) is True:
+            raw_image = self.pipe.stdout.read(size)
+        self.raw_image_prev = np.copy(raw_image)
+
+        raw_image = self.pipe.stdout.read(size)
         image = np.fromstring(raw_image,dtype='uint8')
 
-        if (np.array_equal(self.previous_tmp, image) ):
-            print("\n\nICICIC IDEAN \n\n")
-        self.previous_tmp = image
+
 
         if image.shape[0] == 0:
             return None
