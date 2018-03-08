@@ -58,32 +58,34 @@ class Streamer:
         self.resolution = resTextToTuple(self.resolution)
         self.doResize = type(self.resolution)  == type(())
         #debug("Starting streamer "+str(name), 3)
-        infos = self.meta_data()
-        self.shape = int(infos['width']),int(infos['height'])
+        self.meta = self.meta_data()
+        self.shape = int(self.meta['width']),int(self.meta['height'])
         self.img_count = 0
         self.open()
         self.previous_tmp = None
 
-        debug("Streamer "+str(name)+" ("+str(url)+") opened: img_rate="+str(self.img_rate)+" prefered_resolution="+str(self.resolution)+" original_resolution="+str(self.shape), 3)
+        debug("Streamer "+str(name)+" ("+str(url)+") opened: img_rate="+str(self.img_rate)+" prefered_resolution="+str(self.resolution)+" original_resolution="+str(self.shape), 2)
         #prof.exit()
 
     def meta_data(self):
         #metadata of interest
-        metadataOI = ['width','height']
+        metadataOI = ['width','height','avg_frame_rate']
 
         command = ['ffprobe', '-v' , 'error' ,'-show_format' ,'-show_streams' , self.url]
-
-
         pipe  = sp.Popen(command, stdout=sp.PIPE, stderr=sp.PIPE)
         infos = pipe.communicate()[0]
         #infos = pipe.stdout.read()
         infos = infos.decode().split('\n')
         dic = {}
         for info in infos:
-            if info.split('=')[0] in metadataOI:
+            #print(info)
+            if info.split('=')[0] in metadataOI and dic.get(info.split('=')[0]) is None:
+                print(info)
                 dic[info.split('=')[0]] = info.split('=')[1]
+        print("-----------------------------")
+        print(dic)
         #pipe.terminate()
-        #print(str(dic))
+        self.resolution = (self.resolution[0], int( ( int(dic["height"]) / int(dic["width"]) ) * self.resolution[0] ) )
         return dic
 
 
