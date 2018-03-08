@@ -126,6 +126,7 @@ class Multistreamer(Job):
         try:
             streamerInfo =  self.streamerStartQueue.get(False)
         except:
+            warning("here")
             return None
 
         try:
@@ -153,7 +154,7 @@ class Multistreamer(Job):
                 streamer = Streamer(name, location, img_rate, resolution)
 
         except:
-            error("Cannot start streamer "+name+" ("+str(location)+")", 2)
+            error("Cannot start streamer "+name+" ("+str(location)+")")
             if(_DEBUG_LEVEL >= 3):
                 traceback.print_exc()
             return
@@ -189,5 +190,6 @@ class Multistreamer(Job):
         return {
                 "from" : str(streamer.name),
                 "frame_count": str(streamer.img_count),
-                "img": img2
+                "img": img2,
+                "meta": streamer.meta
             }
