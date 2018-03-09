@@ -67,6 +67,9 @@ function draw_boxing(packet, video_name){
     ctx.beginPath();
     ctx.strokeStyle="red";
     ctx.rect(x, y, w, h);
+    ctx.font = "18px Arial";
+    ctx.fillStyle = "red";
+    ctx.fillText(label,x+10,y+15);
     ctx.stroke();
   }
 }
@@ -178,17 +181,20 @@ socket.onmessage = function(e){
     $("#img_"+video_name).attr('src', imageUrl);
   }
 
-  var socket_debug = new WebSocket("ws://" + window.location.host + ":8765/debug/");
-  socket_debug.binaryType = 'blob' // 'blob' //or ArrayBuffer
-  socket_debug.onmessage = function(e){
-    //alert(e.data);
-    var reader = new FileReader();
-    reader.onload  = function() {
-      packet = bson_decode(this.result)
-      debug_loadImage(packet)
 
+  if (false){
+    var socket_debug = new WebSocket("ws://" + window.location.host + ":8765/debug/");
+    socket_debug.binaryType = 'blob' // 'blob' //or ArrayBuffer
+    socket_debug.onmessage = function(e){
+      //alert(e.data);
+      var reader = new FileReader();
+      reader.onload  = function() {
+        packet = bson_decode(this.result)
+        debug_loadImage(packet)
+
+        }
+      reader.readAsArrayBuffer(e.data);
       }
-    reader.readAsArrayBuffer(e.data);
     }
 </script>
 
