@@ -20,13 +20,13 @@ def readString(fo):
     header = struct.Struct("i")
     l = header.unpack(fo.read(header.size))[0]
     return fo.read(l).decode(encoding="utf-8")
-    
+
 def sendString(fo, string):
     b = string.encode(encoding="utf-8")
     fo.write(struct.pack("i", len(b)))
     fo.write(b)
     fo.flush()
-    
+
 
 '''
 Create a Packet holding the image provided as numpy.ndarray
@@ -36,42 +36,40 @@ def createImagePacket(p, npImg):
     p["shape"] = npImg.shape
     p["dtype"] = npImg.dtype.name
     p["checksum"] = hashlib.sha1(npImg).hexdigest()
-    
+
     #compression
     stream = io.BytesIO()
     np.savez_compressed(stream, npImg)
     stream.seek(0)
-    
+
     p.binObj = stream.read()
-    
+
     return p
-    
+
 '''
-Read the given packet and returns the 
+Read the given packet and returns the
 '''
 def readImagePacket(pck):
     if(not pck["isImage"]):
         return None
-    
+
     #img = np.frombuffer(pck.binObj, dtype=pck["dtype"])
     inBytes = io.BytesIO()
     inBytes.write(pck.binObj)
     inBytes.seek(0)
-    
+
     img = np.load(inBytes)['arr_0']
 
     #print(hashlib.sha1(img).hexdigest()+" "+pck["checksum"])
     chk = hashlib.sha1(img).hexdigest()
-    if(_DEBUG_LEVEL == 3):
-        print("Check = "+str(chk))
-        
+    debug( "Check = "+str(chk),3)
+
     if(chk != pck["checksum"]):
         raise ValueError("Error in transmission: checksums do not match")
-    if(_DEBUG_LEVEL == 3):
-        print("Checksum pass")
-    
+    debug("Checksum pass",3)
+
     img = img.reshape(pck["shape"])
-    
+
     pck.img = img
 
 
@@ -116,34 +114,34 @@ class Packet:
 
     def read(self, binChan):
         l = int.from_bytes(binChan.read(8), 'big') #moins lourd qu'un struct
-        j = binChan.read(l).decode(encoding = 'utf-8')        
-        
+        j = binChan.read(l).decode(encoding = 'utf-8')
+
         self.data = json.loads(j)
 
         binSize = int(self.data[self.BINARY_DATA_LENGTH_TAG])
         if(binSize > 0):
             self._readBinObject(binChan, binSize)
-        
+
         readImagePacket(self)
-            
+
     def _readBinObject(self, binChan, binSize):
-        b = b'' 
+        b = b''
         r = 0
-        
+
         debug("[NETWORK] Reading bin object of "+str(binSize)+" bytes", 3)
         bufSize = binSize if self.BIN_RECV_FULL else self.BIN_READ_MAX
         st = time.time()
         while(r < binSize):
             if(len(b) + bufSize > binSize):
                 bufSize = binSize - len(b)
-            
+
             a = binChan.read(bufSize)
 
             b += a
             r += len(a)
         debug("READ "+str(len(b)) +" in "+str(time.time()-st), 3)
         self.binObj = b
-        
+
 
     def send(self, binChan):
         if(not self.binObj is None and not isinstance(self.binObj, bytes)):
@@ -151,11 +149,11 @@ class Packet:
 
         if(self.binObj != None):
             self.data[self.BINARY_DATA_LENGTH_TAG] = len(self.binObj)
-            
+
         debug("[DEBUG] OUT: "+str(self), 3)
-            
+
         s = json.dumps(self.data)+"\n"
-        
+
         #SENDING
         b = b'' #message buffer
         msgb = s.encode(encoding = 'utf-8')
@@ -163,8 +161,7 @@ class Packet:
         b += msgb
         if(self.binObj != None):
             b += self.binObj
-            
+
         debug("[DEBUG] Total packet size is "+str(len(b))+" bytes", 3)
         binChan.write(b)
         binChan.flush()
-    

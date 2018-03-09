@@ -96,6 +96,7 @@ class Streamer:
         raw_image = self.pipe.stdout.read(size)
         while np.array_equal(self.raw_image_prev, raw_image) is True:
             raw_image = self.pipe.stdout.read(size)
+            self.img_count += 1
         self.raw_image_prev = np.copy(raw_image)
 
         raw_image = self.pipe.stdout.read(size)

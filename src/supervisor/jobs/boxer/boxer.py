@@ -15,7 +15,7 @@ class Detector:
 	def draw_boxes(self, results, image_array):
 		for result in results:
 			x, y, w, h = result[2]
-			box_coords = int(x - w / 2.0), int(y - h / 2.0), int(x + w / 2.0), int(y + h / 2.0) 
+			box_coords = int(x - w / 2.0), int(y - h / 2.0), int(x + w / 2.0), int(y + h / 2.0)
 			image_array = self._draw_box(box_coords, image_array)
 		return image_array
 
@@ -54,7 +54,7 @@ class Detector:
 if __name__ == '__main__':
 	from scipy.misc import imread, imsave
 	from time import time
-	
+
 	import os
 	os.chdir("darknetnnpack")
 
@@ -64,12 +64,12 @@ if __name__ == '__main__':
 
 	detector = Detector(config, weights, meta)
 	image = imread('data/dog.jpg')
-	
+
 	a = time()
 	results = detector.run(image)
 	print(str(time() - a))
 	print(results)
 	print(image.shape)
-	
+
 	image = detector.draw_boxes(results, image)
 	imsave('debug.png', image)

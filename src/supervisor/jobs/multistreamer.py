@@ -176,7 +176,7 @@ class Multistreamer(Job):
             img = streamer.get_image()
             if(type(img) == type(None)):
                 self.streamers.remove(streamer)
-                print("Streamer "+streamer.name+" is done reading")
+                ok("Streamer "+streamer.name)
                 self._startNewStreamerFromExploration()
 
                 if(len(self.streamers) == 0):

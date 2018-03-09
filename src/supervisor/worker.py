@@ -334,7 +334,7 @@ class Worker(object):
         except:
             if(_DEBUG_LEVEL == 3):
                 traceback.print_exc()
-            debug("Output network callback error", 0, True)
+            debug("Output network callback error", 0)
             self._closeSock(sock)
             return
 
@@ -387,7 +387,7 @@ class Worker(object):
             if(_DEBUG_LEVEL == 3):
                 traceback.print_exc()
 
-            debug("Output Connection was lost", 0, True)
+            debug("Output Connection was lost", 0)
 
             self._closeSock(sock)
             self.brokenOutputs.append(sock)
@@ -414,7 +414,7 @@ class Worker(object):
             if(_DEBUG_LEVEL == 3):
                 traceback.print_exc()
 
-            debug("Could not connect to "+str(addr), 0, True)
+            debug("Could not connect to "+str(addr), 0)
 
     def _clearInputQueue(self):
         try:
@@ -435,7 +435,7 @@ class Worker(object):
                 #FIXME: new network archi
                 if(self.job.allowDrop() and self.inputQueue.full()):
                     self._clearInputQueue()
-                    debug("Input queue overflow", 0, True)
+                    debug("Input queue overflow", 0)
 
                 data = self.inputQueue.get()
 

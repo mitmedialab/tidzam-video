@@ -17,15 +17,7 @@
       "jobdata":{
         "port":8765
       },
-      "debuglevel": 3
-    },
-
-    {
-      "workername" : "django",
-      "port":	25224,
-      "jobname": "djangotransfer",
-      "jobdata":"none",
-      "debuglevel": 3
+      "debuglevel": 2
     },
     {
       "workername" : "dl1",
@@ -33,7 +25,7 @@
       "jobname": "boxer.darknet.boxerjob",
       "jobdata":"none",
       "debuglevel": 0,
-      "output": ["websocket","django"]
+      "output": ["websocket"]
     },
 
     {
@@ -42,7 +34,7 @@
       "jobname": "boxer.darknet.boxerjob",
       "jobdata":"none",
       "debuglevel": 0,
-      "output": ["websocket","django"]
+      "output": ["websocket"]
     },
     {
       "workername" : "dl3",
@@ -50,7 +42,7 @@
       "jobname": "boxer.darknet.boxerjob",
       "jobdata":"none",
       "debuglevel": 0,
-      "output": ["websocket","django"]
+      "output": ["websocket"]
     },
     {
       "workername" : "dl4",
@@ -58,7 +50,7 @@
       "jobname": "boxer.darknet.boxerjob",
       "jobdata":"none",
       "debuglevel": 0,
-      "output": ["websocket","django"]
+      "output": ["websocket"]
     },
     {
 
