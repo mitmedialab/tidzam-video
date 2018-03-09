@@ -35,8 +35,11 @@ class Websocket(Job):
     def loop(self, packet):
         packet = build_packet(packet)
 
-        for client in clients:
+        for client in clients_debug:
             client.sendMessage(bson.dumps({"meta":packet.data,"img":packet.img}))
+
+        for client in clients:
+            client.sendMessage(bson.dumps({"meta":packet.data}))
 
     def destroy(self):
         pass
@@ -46,6 +49,7 @@ class Websocket(Job):
 
 # Register all websocket clients
 clients = []
+clients_debug = []
 class WSserver(WebSocket):
 
     def handleMessage(self):
@@ -54,16 +58,19 @@ class WSserver(WebSocket):
              client.sendMessage(self.address[0] + u' - ' + self.data)
 
     def handleConnected(self):
-       debug(str(self.address) + ' connected', 2)
-       for client in clients:
-          client.sendMessage(self.address[0] + u' - connected')
-       clients.append(self)
+        debug(str(self.address) + ' connected on ' + str(self.request.path), 2)
+        if self.request.path == '/':
+            clients.append(self)
+        elif self.request.path == '/debug/':
+            clients_debug.append(self)
 
     def handleClose(self):
-       clients.remove(self)
-       debug(str(self.address) + ' closed', 2)
-       for client in clients:
-          client.sendMessage(self.address[0] + u' - disconnected')
+        debug(str(self.address) + ' closed', 2)
+        if self in clients:
+            clients.remove(self)
+
+        if self in clients_debug:
+            clients_debug.remove(self)
 
 def start_server(port):
     ok("Web Socket server on "+str(port)+" [STARTED]")

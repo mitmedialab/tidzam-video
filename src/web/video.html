@@ -5,44 +5,194 @@
 
 <script src="video-browser.js"></script>
 
+
+
 <style>
 #video_list{
   text-align:center;
 }
 
-.video_div{
+#img_list{
+  text-align:center;
+}
 
+.video_div img{
+  width:250px;
+}
+
+video{
+  width:400px;
+}
+
+canvas {
+  position:relative;
 }
 </style>
 
 <script language="javascript">
 
 
-var loadImage = function(packet) {
-  var urlCreator  = window.URL || window.webkitURL;
-  var imageUrl    = urlCreator.createObjectURL(packet.img);
-  var video_name  = "video_"+packet.meta.from.replace(/\./g,"_").replace(/-/g,"_").replace(/ /g,"_")
+buffer      = {}
+bufferSize  = 5 // seconds
 
-  console.log(packet.meta)
-  if(!$("#"+video_name).get(0)){
-    var img = $('<div class="video_div"><img id="'+video_name+'"><br><span>'+packet.meta.from+' ('+packet.meta.shape+')</span><div>'); //Equivalent: $(document.createElement('img'))
-    img.attr('src', imageUrl);
-    img.appendTo('#video_list');
+function draw_boxing(packet, video_name){
+  // Configure the canvas
+  // set the resolution
+  $("#canva_"+video_name).attr("width", packet.meta.shape[1] + "px")
+  $("#canva_"+video_name).attr("height", packet.meta.shape[0] + "px")
+  // set size and location according to the video
+  $("#canva_"+video_name).css("width",$("#video_"+video_name).width())
+  $("#canva_"+video_name).css("height",$("#video_"+video_name).height())
+  $("#canva_"+video_name).css("left",-$("#video_"+video_name).width())
+  $("#canva_"+video_name).css("top",5)
+
+  // load caneva context
+  var ctx=$("#canva_"+video_name)[0].getContext("2d");
+  ctx.clearRect(0, 0, $("#video_"+video_name).width(), $("#video_"+video_name).height());
+
+  // Draw the boxings
+  for (var detec in packet.meta.detection){
+    var label  = packet.meta.detection[detec][0]
+    var accur  = packet.meta.detection[detec][1]
+    var boxing = packet.meta.detection[detec][2]
+    scaleX = ($("#video_"+video_name).width() / packet.meta.shape[1] )
+    scaleY = ($("#video_"+video_name).height() / packet.meta.shape[0] )
+
+    x = boxing[0] - (boxing[2] / 2)
+    y = boxing[1] - (boxing[3] / 2)
+    w = boxing[2]
+    h = boxing[3]
+
+
+    ctx.beginPath();
+    ctx.strokeStyle="red";
+    ctx.rect(x, y, w, h);
+    ctx.stroke();
   }
-  $("#"+video_name).attr('src', imageUrl);
 }
 
+function process_boxing_packet(packet){
 
+  framerate = eval(packet.meta.meta.avg_frame_rate)
+  var video_name  = packet.meta.from.replace(/\./g,"_").replace(/-/g,"_").replace(/ /g,"_").replace("tidzam-video","")
+  var video_url   = "https://tidzam.media.mit.edu/video-database/"+packet.meta.from.replace("tidzam-video","")
+  var video = $("#video_"+video_name).get(0)
+
+  // ================= VIDEO OBJECT CREATION WITH ITS DRAWING LOOP
+  // If the video is not loaded, we create the object and start the video
+  if(!video){
+    var img = $('<video controls autoplay id="video_'+video_name+'" src="'+video_url+'" type="video/mp4"></video>'+
+                  '<canvas id="canva_'+video_name+'"></canvas><br>');
+    img.appendTo('#video_list');
+    buffer[$("#video_"+video_name).get(0).id] = []
+
+    function draw(video_name) {
+      try{
+      // Get the object video
+      video_obj             = $("#video_"+video_name).get(0)
+      // Get the frame time of the next boxing in the queue
+      packet_currentTime    = Math.floor(buffer[video_obj.id][0].meta.frame_count / framerate)
+
+      // If the next boxing in queue is corresponding to current video frame, we draw it
+      if (Math.abs(video_obj.currentTime - packet_currentTime) < 0.1 ){
+        //console.log(video_obj.currentTime + " = " + packet_currentTime)
+        draw_boxing(buffer[video_obj.id][0], video_name)
+        buffer[video_obj.id].shift()
+
+        // Clean the buffer just in case there is old boxings which has not been processed
+        framerate  = eval(packet.meta.meta.avg_frame_rate)
+        for(var i=0; i < buffer[video_obj.id].length; i++)
+          if ( Math.floor(buffer[video_obj.id][i].meta.frame_count / framerate) < video_obj.currentTime)
+            buffer[video_obj.id].splice(i,1)
+        }
+      }
+      catch(err){
+        console.log("Drawing box no ready")
+      }
+      // Try to draw the boxing each ms
+      setTimeout(function(){draw(video_name)},1);
+    }
+
+    draw( video_name );
+    return
+  }
+
+  // ================= ADD CURRENT PACKET IN POOL AND REORDER IT (in case that packet doesn t arrive in right order)
+  buffer[video.id].push(packet)
+  buffer[video.id].sort(function(packet1, packet2) {
+      return packet1.meta.frame_count - packet2.meta.frame_count;
+      });
+
+  // ================= MANAGE THE BOXING PACKET BUFFERING
+  playback_currentTime  = $("#video_"+video_name).get(0).currentTime
+  packet_currentTime    = Math.floor(buffer[video.id][buffer[video.id].length-1].meta.frame_count / framerate)
+  //console.log("Receive " + packet_currentTime + " at " + playback_currentTime)
+
+  if ( packet_currentTime > bufferSize + playback_currentTime){
+    video.currentTime = Math.floor(buffer[video.id][0].meta.frame_count / framerate)
+    video.play()
+    console.log("Load movie " + video_name + " at " + packet_currentTime)
+  }
+  else if (!video.paused && Math.floor(packet.meta.frame_count / framerate)  <=  playback_currentTime){
+    video.pause()
+    console.log("Pause movie " + video_name + " ("+Math.floor(packet.meta.frame_count / framerate)  +"<="+  playback_currentTime+") ")
+  }
+}
+
+/**************************************************************
+GENERAL INTERFACE
+* Connect to ws://XXXX/
+* Read the boxing packet and draw them on the video flow
+**************************************************************/
 var socket = new WebSocket("ws://" + window.location.host + ":8765");
 socket.binaryType = 'blob' // 'blob' //or ArrayBuffer
 socket.onmessage = function(e){
   //alert(e.data);
   var reader = new FileReader();
   reader.onload  = function() {
-    loadImage(bson_decode(this.result))
+    packet = bson_decode(this.result)
+    //debug_loadImage(packet)
+    process_boxing_packet(packet);
+
     }
   reader.readAsArrayBuffer(e.data);
   }
+
+
+  /**************************************************************
+  DEBUG INTERFACE
+  * Connect to ws://XXXX/debug/
+  * Read the boxed frame from the server and show them
+  **************************************************************/
+
+  var debug_loadImage = function(packet) {
+    var urlCreator  = window.URL || window.webkitURL;
+    var imageUrl    = urlCreator.createObjectURL(packet.img);
+    var video_name  = "video_"+packet.meta.from.replace(/\./g,"_").replace(/-/g,"_").replace(/ /g,"_")
+
+
+    if(!$("#img_"+video_name).get(0)){
+      var img = $('<div class="video_div"><img id="img_'+video_name+'"><br><span>'+packet.meta.from+' ('+packet.meta.shape+')</span><div>');
+      img.appendTo('#img_list');
+    }
+    $("#img_"+video_name).attr('src', imageUrl);
+  }
+
+  var socket_debug = new WebSocket("ws://" + window.location.host + ":8765/debug/");
+  socket_debug.binaryType = 'blob' // 'blob' //or ArrayBuffer
+  socket_debug.onmessage = function(e){
+    //alert(e.data);
+    var reader = new FileReader();
+    reader.onload  = function() {
+      packet = bson_decode(this.result)
+      debug_loadImage(packet)
+
+      }
+    reader.readAsArrayBuffer(e.data);
+    }
 </script>
 
+
+
 <div id="video_list"></div>
+<div id="img_list"></div>
