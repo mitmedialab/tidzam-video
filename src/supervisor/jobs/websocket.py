@@ -33,13 +33,16 @@ class Websocket(Job):
         thread.start()
 
     def loop(self, packet):
-        packet = build_packet(packet)
+        try:
+            packet = build_packet(packet)
 
-        for client in clients_debug:
-            client.sendMessage(bson.dumps({"meta":packet.data,"img":packet.img}))
+            for client in clients_debug:
+                client.sendMessage(bson.dumps({"meta":packet.data,"img":packet.img}))
 
-        for client in clients:
-            client.sendMessage(bson.dumps({"meta":packet.data}))
+            for client in clients:
+                client.sendMessage(bson.dumps({"meta":packet.data}))
+        except:
+            warning("Unable to process packet")
 
     def destroy(self):
         pass

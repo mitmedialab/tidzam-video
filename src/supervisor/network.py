@@ -9,7 +9,7 @@ import json
 import struct
 
 from utils.custom_logging import _DEBUG_LEVEL
-from utils.custom_logging import debug
+from utils.custom_logging import debug, error, warning
 import numpy as np
 import time
 import io
@@ -115,8 +115,10 @@ class Packet:
     def read(self, binChan):
         l = int.from_bytes(binChan.read(8), 'big') #moins lourd qu'un struct
         j = binChan.read(l).decode(encoding = 'utf-8')
-
-        self.data = json.loads(j)
+        try:
+            self.data = json.loads(j)
+        except json.decoder.JSONDecodeError:
+            error("Network error: JSON Decoder error" + str(j))
 
         binSize = int(self.data[self.BINARY_DATA_LENGTH_TAG])
         if(binSize > 0):

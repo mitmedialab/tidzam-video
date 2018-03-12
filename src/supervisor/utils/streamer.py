@@ -20,7 +20,7 @@ import PIL.Image as Image
 import numpy as np
 import subprocess as sp
 from utils.config_checker import checkConfigSanity
-from utils.custom_logging import debug, _DEBUG_LEVEL
+from utils.custom_logging import debug, ok, warning, _DEBUG_LEVEL
 from worker import Job
 from threading import Thread
 
@@ -60,11 +60,11 @@ class Streamer:
         #debug("Starting streamer "+str(name), 3)
         self.meta = self.meta_data()
         self.shape = int(self.meta['width']),int(self.meta['height'])
-        self.img_count = 0
+        self.img_count = -1
         self.open()
         self.raw_image_prev = None
 
-        debug("Streamer "+str(name)+" ("+str(url)+") opened: img_rate="+str(self.img_rate)+" prefered_resolution="+str(self.resolution)+" original_resolution="+str(self.shape), 2)
+        debug("Streamer "+str(name)+" ("+str(url)+") opened: img_rate="+str(self.img_rate)+" prefered_resolution="+str(self.resolution)+" original_resolution="+str(self.shape), 1)
         #prof.exit()
 
     def meta_data(self):
@@ -78,12 +78,9 @@ class Streamer:
         infos = infos.decode().split('\n')
         dic = {}
         for info in infos:
-            #print(info)
             if info.split('=')[0] in metadataOI and dic.get(info.split('=')[0]) is None:
-                print(info)
                 dic[info.split('=')[0]] = info.split('=')[1]
-        print("-----------------------------")
-        print(dic)
+        dic["frame_rate_processing"] = str(self.img_rate)
         #pipe.terminate()
         self.resolution = (self.resolution[0], int( ( int(dic["height"]) / int(dic["width"]) ) * self.resolution[0] ) )
         return dic
@@ -91,24 +88,22 @@ class Streamer:
 
     def get_image(self):
         self.psProcess.resume()
-        size = self.shape[0]*self.shape[1]*3
 
+        size = self.shape[0]*self.shape[1]*3
         raw_image = self.pipe.stdout.read(size)
         while np.array_equal(self.raw_image_prev, raw_image) is True:
             raw_image = self.pipe.stdout.read(size)
             self.img_count += 1
+            debug("Drop frame from ffmpeg (duplicated)",3)
         self.raw_image_prev = np.copy(raw_image)
 
-        raw_image = self.pipe.stdout.read(size)
+        #raw_image = self.pipe.stdout.read(size)
         image = np.fromstring(raw_image,dtype='uint8')
-
-
 
         if image.shape[0] == 0:
             return None
 
         image = image.reshape((self.shape[1],self.shape[0],3))
-
 
         self.pipe.stdout.flush()
         self.psProcess.suspend()
@@ -137,8 +132,6 @@ class Streamer:
     def terminate(self):
         self.pipe.stdout.flush()
         self.pipe.terminate()
-
-
 
 class RealTimeStreamer(Streamer):
     """

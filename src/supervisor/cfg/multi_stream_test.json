@@ -1,9 +1,9 @@
  {
 
   "options": {
-    "default_img_rate":60,
+    "default_img_rate":8,
     "defaut_resolution":"800x600",
-    "max_streamers":1,
+    "max_streamers":2,
     "video_extensions": ".mp4;.avi",
     "realtime": 1
 

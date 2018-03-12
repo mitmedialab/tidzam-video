@@ -4,7 +4,7 @@ from multiprocessing import Queue
 from os import listdir
 import os
 from utils.config_checker import checkConfigSanity
-from utils.custom_logging import debug,error,warning, _DEBUG_LEVEL
+from utils.custom_logging import debug,error,warning,ok, _DEBUG_LEVEL
 from utils.streamer import *
 from worker import Job
 
@@ -176,11 +176,11 @@ class Multistreamer(Job):
             img = streamer.get_image()
             if(type(img) == type(None)):
                 self.streamers.remove(streamer)
-                ok("Streamer "+streamer.name)
+                debug("Streamer "+streamer.name + " is terminated.",1)
                 self._startNewStreamerFromExploration()
 
                 if(len(self.streamers) == 0):
-                    debug("Reached end of multistreamer job, successfull exit", 2)
+                    ok("Reached end of multistreamer job, successfull exit")
                     self.shouldStop = True
                     return None
 

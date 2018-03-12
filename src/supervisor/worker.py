@@ -268,7 +268,7 @@ class Worker(object):
         except:
             if(_DEBUG_LEVEL == 3):
                 traceback.print_exc()
-            debug("Incoming Connection was lost", 0, True)
+            error("Incoming Connection was lost")
         finally:
             self._closeSock(sock)
             del self.inputConnections[sock]
@@ -334,7 +334,7 @@ class Worker(object):
         except:
             if(_DEBUG_LEVEL == 3):
                 traceback.print_exc()
-            debug("Output network callback error", 0)
+            warning("Output network callback error", 0)
             self._closeSock(sock)
             return
 
