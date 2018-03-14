@@ -17,7 +17,7 @@ import numpy as np
 from threading import Event
 from network import Packet
 
-from utils.custom_logging import _DEBUG_LEVEL, debug, error, warning
+from utils.custom_logging import _DEBUG_LEVEL, debug, error, warning, ok
 from utils import custom_logging
 import signal
 from multiprocessing.queues import Empty
@@ -32,7 +32,7 @@ class SupervisedProcessStream():
         text = text.rstrip()
         if len(text) == 0: return
         d = str(datetime.now())+" "
-        self.old_std.write(d+ "["+str(self.name)+"] ("+str(os.getpid())+") : " + text + '\n')
+        self.old_std.write(d+ "["+str(self.name)+"] ("+str(os.getpid())+") \t: " + text + '\n')
 
     def flush(self):
         self.old_std.flush()
@@ -92,7 +92,7 @@ class Worker(object):
             except:
                 traceback.print_exc()
 
-        debug("[STOP] Exiting with code "+str(code), 0)
+        debug("[STOP] Exiting with code "+str(code), 1)
         self._exitCode = code
         self._inputQueue.close() #triggers exception in main thread causing a check of exitCode
         self.action_halt()
@@ -110,7 +110,7 @@ class Worker(object):
         return False
 
     def action_halt(self):
-        debug("[HALT] Halting !", 0)
+        ok("[HALT] Worker terminated.")
         suicide()
 
     def action_stop(self):
@@ -266,7 +266,7 @@ class Worker(object):
         except:
             if(_DEBUG_LEVEL == 3):
                 traceback.print_exc()
-            error("Incoming Connection was lost")
+            warning("Incoming Connection was lost")
         finally:
             self._closeSock(sock)
             del self.inputConnections[sock]
@@ -474,7 +474,7 @@ class Worker(object):
         try:
             self._doJob()
         except:
-            debug("Error from job thread", 0)
+            error("Error from job thread", 0)
             traceback.print_exc()
             self.stop(1)
 
