@@ -1,0 +1,47 @@
+<!doctype html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Tid'Zam Video</title>
+    <meta name="description" content="Tid'Zam Videos, wild life real time boxing.">
+    <meta name="author" content="La Triade">
+    <link rel="stylesheet" href="css/style.css">
+  </head>
+
+  <body>
+    <div id="connectionErrorText" ><img src="res/warn.png" /> Connection problem</div>
+    <div id="myModal" class="modal">
+      <span class="close">&times;</span>
+      <ul class="counters">
+        <li id="fps-counter">FPS: 0</li>
+        <li id="bytes-counter">Bandwidth: 0</li>
+        <li id="boxes-counter">Boxes: 0</li>
+      </ul>
+      <canvas class="modal-content" width="1080", height="720"></canvas>
+    </div>
+
+    <div class='wraper'>
+      <div id='connectionInfo'></div>
+      <div class='nav'>
+        <img class='logo' src='res/logostidzam.png'/>
+      </div>
+
+      <div class='content'>
+        <div id='gallery' class='gallery'>
+
+        </div>
+      </div>
+    </div>
+
+    <div id="video-garbage" style="display: none"></div>
+
+    <script type="text/javascript" src="js/bson.js"></script>
+    <script type="text/javascript" src="js/tidzamvideo.js"></script>
+    <script type="text/javascript" src="js/buffer.js"></script>
+    <script type="text/javascript" src="js/video-buffer.js"></script>
+    <script type="text/javascript">
+      connect();
+    </script>
+  </body>
+</html>
