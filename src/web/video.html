@@ -21,7 +21,7 @@
 }
 
 video{
-  width:400px;
+  width:800px;
 }
 
 canvas {
@@ -33,7 +33,7 @@ canvas {
 
 
 buffer      = {}
-bufferSize  = 5 // seconds
+bufferSize  = 10 // seconds
 
 function draw_boxing(packet, video_name){
   // Configure the canvas
@@ -75,16 +75,16 @@ function draw_boxing(packet, video_name){
 }
 
 function process_boxing_packet(packet){
-
-  framerate = eval(packet.meta.meta.avg_frame_rate)
+  console.log(JSON.stringify(packet))
+  framerate = packet.meta.meta.frame_rate_processing
   var video_name  = packet.meta.from.replace(/\./g,"_").replace(/-/g,"_").replace(/ /g,"_").replace("tidzam-video","")
-  var video_url   = "https://tidzam.media.mit.edu/video-database/"+packet.meta.from.replace("tidzam-video","")
+  var video_url   = "https://tidzam.media.mit.edu/"+packet.meta.path
   var video = $("#video_"+video_name).get(0)
 
   // ================= VIDEO OBJECT CREATION WITH ITS DRAWING LOOP
   // If the video is not loaded, we create the object and start the video
   if(!video){
-    var img = $('<video controls autoplay id="video_'+video_name+'" src="'+video_url+'" type="video/mp4"></video>'+
+    var img = $('<video controls id="video_'+video_name+'" src="'+video_url+'" type="video/mp4"></video>'+
                   '<canvas id="canva_'+video_name+'"></canvas><br>');
     img.appendTo('#video_list');
     buffer[$("#video_"+video_name).get(0).id] = []
@@ -101,13 +101,13 @@ function process_boxing_packet(packet){
         //console.log(video_obj.currentTime + " = " + packet_currentTime)
         draw_boxing(buffer[video_obj.id][0], video_name)
         buffer[video_obj.id].shift()
-
-        // Clean the buffer just in case there is old boxings which has not been processed
-        framerate  = eval(packet.meta.meta.avg_frame_rate)
-        for(var i=0; i < buffer[video_obj.id].length; i++)
-          if ( Math.floor(buffer[video_obj.id][i].meta.frame_count / framerate) < video_obj.currentTime)
-            buffer[video_obj.id].splice(i,1)
         }
+
+      // Clean the buffer just in case there is old boxings which has not been processed
+      framerate  = eval(packet.meta.meta.frame_rate_processing)
+      for(var i=0; i < buffer[video_obj.id].length; i++)
+        if ( Math.floor(buffer[video_obj.id][i].meta.frame_count / framerate) < video_obj.currentTime)
+          buffer[video_obj.id].splice(i,1)
       }
       catch(err){
         console.log("Drawing box no ready")
@@ -126,19 +126,25 @@ function process_boxing_packet(packet){
       return packet1.meta.frame_count - packet2.meta.frame_count;
       });
 
+
   // ================= MANAGE THE BOXING PACKET BUFFERING
   playback_currentTime  = $("#video_"+video_name).get(0).currentTime
   packet_currentTime    = Math.floor(buffer[video.id][buffer[video.id].length-1].meta.frame_count / framerate)
   //console.log("Receive " + packet_currentTime + " at " + playback_currentTime)
+  //console.log(buffer[$("#video_"+video_name).get(0) .id].length)
 
-  if ( packet_currentTime > bufferSize + playback_currentTime){
-    video.currentTime = Math.floor(buffer[video.id][0].meta.frame_count / framerate)
-    video.play()
-    console.log("Load movie " + video_name + " at " + packet_currentTime)
+  if (packet_currentTime > bufferSize + playback_currentTime){
+      video.currentTime = Math.floor(buffer[video.id][0].meta.frame_count / framerate)
+      video.play()
+      console.log("Load movie " + video_name + " at " + packet_currentTime)
   }
   else if (!video.paused && Math.floor(packet.meta.frame_count / framerate)  <=  playback_currentTime){
     video.pause()
     console.log("Pause movie " + video_name + " ("+Math.floor(packet.meta.frame_count / framerate)  +"<="+  playback_currentTime+") ")
+  }
+  else if (video.paused){
+    console.log("Play movie " + video_name + " ("+Math.floor(packet.meta.frame_count / framerate)  +"<="+  playback_currentTime+") ")
+    video.play()
   }
 }
 
