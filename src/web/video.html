@@ -21,7 +21,7 @@
 }
 
 video{
-  width:800px;
+  width:400px;
 }
 
 canvas {
@@ -75,9 +75,9 @@ function draw_boxing(packet, video_name){
 }
 
 function process_boxing_packet(packet){
-  console.log(JSON.stringify(packet))
+  //console.log(JSON.stringify(packet))
   framerate = packet.meta.meta.frame_rate_processing
-  var video_name  = packet.meta.from.replace(/\./g,"_").replace(/-/g,"_").replace(/ /g,"_").replace("tidzam-video","")
+  var video_name  = packet.meta.from.replace(/\./g,"_").replace(/-/g,"_").replace(/ /g,"_")
   var video_url   = "https://tidzam.media.mit.edu/"+packet.meta.path
   var video = $("#video_"+video_name).get(0)
 
@@ -85,14 +85,17 @@ function process_boxing_packet(packet){
   // If the video is not loaded, we create the object and start the video
   if(!video){
     var img = $('<video controls id="video_'+video_name+'" src="'+video_url+'" type="video/mp4"></video>'+
-                  '<canvas id="canva_'+video_name+'"></canvas><br>');
+                '<canvas id="canva_'+video_name+'"></canvas><br>');
     img.appendTo('#video_list');
     buffer[$("#video_"+video_name).get(0).id] = []
 
-    function draw(video_name) {
+    function draw(video_name, count) {
+
       try{
       // Get the object video
       video_obj             = $("#video_"+video_name).get(0)
+      if (!video_obj.paused) count = 0
+      else count ++;
       // Get the frame time of the next boxing in the queue
       packet_currentTime    = Math.floor(buffer[video_obj.id][0].meta.frame_count / framerate)
 
@@ -113,10 +116,15 @@ function process_boxing_packet(packet){
         console.log("Drawing box no ready")
       }
       // Try to draw the boxing each ms
-      setTimeout(function(){draw(video_name)},1);
+      if (video_obj.ended || count > 10 * framerate){
+        console.log("delete " + video_obj.ended + " " + count)
+        video_obj.remove()
+        $("#canva_"+video_name).remove()
+      }
+      // Call the draw function two time between processing framerate
+      else setTimeout(function(){draw(video_name, count)}, (1 / (2*framerate) ) * 1000);
     }
-
-    draw( video_name );
+    draw( video_name , 0 );
     return
   }
 

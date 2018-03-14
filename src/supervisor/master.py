@@ -19,7 +19,7 @@ import traceback
 import network
 from utils import config_checker
 from utils.custom_logging import _DEBUG_LEVEL
-from utils.custom_logging  import debug,error,warning
+from utils.custom_logging  import debug,error,warning,ok
 from worker import SupervisedProcessStream
 #from utils.custom_logging import #profiler as #prof
 
@@ -86,12 +86,12 @@ class RemoteSupervisor:
 
     def push(self, obj, throwOnError = True):
         #prof.enter("PUSH")
-        debug("Pushing to "+self.name)
+        debug("Pushing to "+self.name,2)
         sock = self._connect()
         chan = sock.makefile("rwb")
 
         network.sendString(chan, json.dumps(obj))
-        debug("Awaiting reply...")
+        debug("Awaiting reply...",2)
         answ = network.readString(chan) or "SOCK_TIMEOUT"
 
         try:
@@ -106,19 +106,18 @@ class RemoteSupervisor:
                 error("Err was:"+answ,0)
 
                 return False
-
-        debug("OK")
+        ok("Configuration "+ obj["workername"] + "("+ obj["jobname"]+") on " + self.name)
 
         return answ
 
 def loadSupervisors(cfg):
-    debug("Master config sanity check...")
+    debug("Master config sanity check...", 2)
     if(not config_checker.checkMasterConfigSanity(cfg)):
         return
 
     objCfg = json.loads(cfg)
 
-    debug("Loading Supervisors...")
+    debug("Loading Supervisors...", 2)
     return loadUnits(objCfg['units'])
 
 
@@ -149,7 +148,7 @@ def checkWorkerConfig(cfg):
     return config_checker.checkWorkerConfigSanity(cfg)
 
 def loadWorkerSequence(objCfg, rsup):
-    debug("Creating worker sequence...")
+    debug("Creating worker sequence...", 2)
     workerSequence, workerSup, workerByName = loadWorkerDistributionSequence(objCfg['workers'], rsup)
 
     return (workerSequence, workerSup, workerByName)
@@ -208,7 +207,7 @@ def loadWorkerDistributionSequence(workers, rsup):
 
         raise e
 
-    debug("Worker ignition sequence is "+str(workerSequence))
+    debug("Worker ignition sequence is "+str(workerSequence), 2)
 
     return (workerSequence, workerSuper, workerByName)
 
@@ -250,17 +249,17 @@ if __name__ == '__main__':
     sys.stderr = SupervisedProcessStream(sys.stderr, "MASTER")
 
     #prof.enter("main")
-    debug("Starting Master...", 0)
+    ok("Starting Master...")
     cfg = None
 
     if(len(sys.argv) > 1):
-        debug("Using config file: "+str(sys.argv[1]))
+        debug("Using config file: "+str(sys.argv[1]), 2)
         fil = sys.argv[1]
         cfg = read(fil)
         debug(cfg, 3)
 
     if(cfg == None):
-        debug("Master started, awaiting config", 0)
+        debug("Master started, awaiting config", 1)
         cfg = input().strip()
 
     debug("Reading config...")

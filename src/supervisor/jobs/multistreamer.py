@@ -77,7 +77,7 @@ class Multistreamer(Job):
         self.streamers = []
         self.streamerStartQueue = Queue()
 
-        debug("Starting streamers...", 3)
+        ok("Starting streamers...")
 
         if('stream'in self.cfg):
             for streamerInfo in self.cfg['stream']:
@@ -126,7 +126,6 @@ class Multistreamer(Job):
         try:
             streamerInfo =  self.streamerStartQueue.get(False)
         except:
-            warning("here")
             return None
 
         try:
@@ -189,6 +188,7 @@ class Multistreamer(Job):
         self.streamerIndex += 1
         return {
                 "from" : str(streamer.name),
+                "path" : str(streamer.url),
                 "frame_count": str(streamer.img_count),
                 "img": img2,
                 "meta": streamer.meta

@@ -1,10 +1,11 @@
 import os
-from utils.custom_logging import debug
+from utils.custom_logging import debug, error, warning, ok
 os.chdir(os.path.dirname(__file__))
 
 from worker import Job
 from .boxer import Detector
 import numpy as np
+import inspect
 
 def encode_results(results):
 	r = []
@@ -22,12 +23,21 @@ class Boxerjob(Job):
 		config = b"cfg/yolo9000.cfg"
 		weights = b"weights/yolo9000.weights"
 		meta = b"cfg/combine9k.data"
+
 		self.detector = Detector(config, weights, meta)
-		debug("Started detector cfg="+str(config)+" weights="+str(weights)+" meta="+str(meta), 3)
+		ok("Starting boxing identifier.")
+		debug("cfg="+str(config)+" weights="+str(weights)+" meta="+str(meta), 3)
 
 
 	def loop(self, data):
-		image = data.img
+		if data is None:
+			return
+		try:
+			image = data.img
+		except:
+			ok("End of job, exit.")
+			self.shouldStop = True
+			return data
 
 		results = self.detector.run(image)
 		image = self.detector.draw_boxes(results, image)

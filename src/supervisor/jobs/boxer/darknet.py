@@ -37,7 +37,7 @@ class IMAGE(Structure):
 class METADATA(Structure):
     _fields_ = [("classes", c_int),
                 ("names", POINTER(c_char_p))]
-
+bnbc
 lib_path = os.path.dirname(__file__)+"/libdarknet.so"
 lib = CDLL(lib_path, RTLD_GLOBAL)
 lib.network_width.argtypes = [c_void_p]
@@ -118,21 +118,21 @@ class Stopwatch:
 
     def __init__(self):
         self.start = time()
-    
+
     def print_now(self):
         print("ELAPSED: "+str(self.get_time()))
-        
-    
+
+
     def get_time(self):
         t = str(time()-self.start)
         self.start = time()
-        
+
         return t
 
 def detect(net, meta, image, thresh=.2, hier_thresh=.5, nms=.45):
     sw = Stopwatch()
     debug("Darknet running on image...", 2)
-    
+
     debug("DARKNET TIMINGS", 3)
 
     boxes = make_boxes(net)
@@ -148,7 +148,7 @@ def detect(net, meta, image, thresh=.2, hier_thresh=.5, nms=.45):
     debug("DETECTION "+str(sw.get_time()), 3)
 
     res = []
-    
+
     for i in meta_classes:
         for j in range(num):
             if probs[j][i] > 0:

@@ -1,10 +1,3 @@
-'''
-Created on 8 févr. 2018
-
-@author: win32gg
-'''
-
-
 import copy
 import json
 from multiprocessing import Lock

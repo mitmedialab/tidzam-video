@@ -1,8 +1,3 @@
-'''
-
-@author: WIN32GG
-'''
-
 import sys
 import traceback
 import os.path
@@ -11,7 +6,7 @@ import os.path
     DEBUG OUTPUT HANDLING
 """
 #debug level 0,1,2,3 the higher, the depper debug
-_DEBUG_LEVEL = 3 #FIXME not sensible to change
+_DEBUG_LEVEL = 0  #FIXME not sensible to change
 _DEBUG_DICT  = {0:"Minimum", 1: "Supervisor info", 2: "Workers status", 3: "Everything (debug)"}
 
 class Profiler():
@@ -61,14 +56,8 @@ def ok(msg, level = 0 ):
         stream.write(sts + msg+"\n")
         stream.flush()
 
-def debug(msg, level = 1):
-    if(level <= _DEBUG_LEVEL):
-        stream = sys.stdout
-        sts = "\t[INFO] [LV "+str(level)+"] " if level < 3 else "[DEBUG] "
-        stream.write(sts + msg+"\n")
-        stream.flush()
 
-def error(msg, level = 1):
+def error(msg, level = 0):
     if(level <= _DEBUG_LEVEL):
         stream = sys.stderr
         msg = "\t[\033[31mERROR\033[0m] "+msg  + _getTB()
@@ -80,4 +69,11 @@ def warning(msg, level = 1):
         stream = sys.stderr
         msg = "\t[\033[33mWARNING\033[0m]  "+msg  + _getTB()
         stream.write(msg+"\n")
+        stream.flush()
+
+def debug(msg, level = 2):
+    if(level <= _DEBUG_LEVEL):
+        stream = sys.stdout
+        sts = "\t[INFO] [LV "+str(level)+"] " if level < 3 else "[DEBUG] "
+        stream.write(sts + msg+"\n")
         stream.flush()

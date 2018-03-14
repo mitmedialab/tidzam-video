@@ -42,7 +42,8 @@ class Websocket(Job):
             for client in clients:
                 client.sendMessage(bson.dumps({"meta":packet.data}))
         except:
-            warning("Unable to process packet")
+            ok("Terminated.")
+            self.shouldStop = True
 
     def destroy(self):
         pass

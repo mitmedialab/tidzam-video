@@ -12,7 +12,7 @@ import struct
 
 from utils import config, custom_logging
 from utils import config_checker
-from utils.custom_logging import debug, _DEBUG_LEVEL, error, warning
+from utils.custom_logging import debug, _DEBUG_LEVEL, error, warning, ok
 import network
 import worker
 import sys
@@ -43,17 +43,17 @@ class Supervisor():
             return
         self.stopping = True
 
-        debug("Got STOP request, stopping...")
+        debug("Got STOP request, stopping...", 1)
         self.running = False
 
-        debug("[STOP] Stopping workers")
+        debug("[STOP] Stopping workers", 1)
         for proc in self.workers.values():
             proc.terminate()
 
-        debug("[STOP] Closing server")
+        debug("[STOP] Closing server", 1)
         self.server.close()
 
-        debug("[STOP] Terminating in 0.25 sec")
+        debug("[STOP] Terminating in 0.25 sec", 1)
         time.sleep(.25)
 
         suicide()
@@ -66,15 +66,15 @@ class Supervisor():
         try:
             self.server.bind(('', config.SUPERVISOR_PORT))
             self.server.listen(4)
-            debug("Started Supervisor Server")
+            ok("Started Supervisor Server")
             while(self.running):
                 client, addr = self.server.accept()
-                debug("Connection from "+str(addr))
+                debug("Connection from "+str(addr), 1)
 
                 Thread(target=self._clientTarget, args=(client,)).start()
 
         except:
-            error("Supervisor Server Shutting down", 0)
+            error("Supervisor Server Shutting down")
             traceback.print_exc()
             self.server.close()
             suicide()
@@ -157,13 +157,13 @@ class Supervisor():
             debug("Got action for worker, skipping config check")
             action = True
         else:
-            debug("Checking config...")
+            debug("Checking config...", 1)
             if(not config_checker.checkWorkerConfigSanity(workerConfig)):
                 return
-            debug("Config is OK")
+            debug("Config is OK", 1)
 
         if(name in self.workers):
-            debug("Worker found: "+name)
+            debug("Worker found: "+name, 1)
             self._sendToWorker(name, workerConfig)
         else:
             if(action):
@@ -173,30 +173,28 @@ class Supervisor():
         time.sleep(1)
 
     def _workerManagementThreadTarget(self, workerConfig, name):
-        debug("[WORKER-MGM] Starting worker process...")
+        debug("[WORKER-MGM] Starting worker process...", 1)
         proc = sp.Popen([config.PYTHON_CMD, "worker.py"], stdin=sp.PIPE, universal_newlines=True)
         self.workers[name] = proc
         self.workerConfig[name] = workerConfig
-        debug("[WORKER-MGM] Worker "+name+" started with pid "+str(proc.pid))
+        debug("[WORKER-MGM] Worker "+name+" started with pid "+str(proc.pid), 1)
         self._sendToWorker(name, workerConfig)
 
         proc.wait()
-        debug("[WORKER-MGM] Worker "+name+" ("+str(proc.pid)+") exited with errcode "+str(proc.poll()))
+        debug("[WORKER-MGM] Worker "+name+" ("+str(proc.pid)+") exited with errcode "+str(proc.poll()), 1)
         del self.workers[name]
         del self.workerConfig[name]
 
     def _sendToWorker(self, wname, config):
-        debug("[SUPERVISOR] Sending config to worker")
+        debug("[SUPERVISOR] Sending config to worker", 1)
         proc = self.workers[wname]
         proc.stdin.write(config+"\n")
         proc.stdin.flush()
 
-
-
 if __name__ == '__main__':
 
     sup = Supervisor()
-    debug("Ready for input")
+    debug("Ready for input", 1)
     while(True):
         try:
             l = input().strip()
@@ -205,7 +203,7 @@ if __name__ == '__main__':
             except Exception as exc:
                 if(_DEBUG_LEVEL >= 3):
                     traceback.print_exc()
-                debug('Invaiid Configuration provided', 0, True)
+                warning('Invalid Configuration provided')
 
 
             act = sup._detectSpecialAction(l)

@@ -95,6 +95,7 @@ class Worker(object):
         debug("[STOP] Exiting with code "+str(code), 0)
         self._exitCode = code
         self._inputQueue.close() #triggers exception in main thread causing a check of exitCode
+        self.action_halt()
 
     def checkAction(self, config):
         try:
@@ -122,18 +123,15 @@ class Worker(object):
             mod   = importlib.import_module("jobs."+jobName)
             shortName = jobName.split(".")[-1]
             jobCl = getattr(mod, shortName.capitalize())
-
-            warning("Skipped subclass test", 0)
-            '''if(not issubclass(jobCl, Job)):
-                error("The given job class is not a Job", 0)
-                error("It is "+str(jobCl))
-                self.job = None
-                return '''
-
                 #difference btwn import error & load error
             self.job = jobCl.__new__(jobCl)
             self.job.__init__()
 
+            if(not self.job.isJob):
+                error(str(jobCl) + " is not a valid Job")
+                self.job = None
+                self.action_halt()
+                return
             debug("Job loaded", 1)
 
         except:
@@ -272,6 +270,7 @@ class Worker(object):
         finally:
             self._closeSock(sock)
             del self.inputConnections[sock]
+            self.action_halt()
 
     def _closeSock(self, sock):
         if(not sock._closed):
@@ -310,8 +309,11 @@ class Worker(object):
 
     def _sendJobCompletionAck(self):
         for chan in self.inputConnections.values():
-            chan.write(b'a') #whatever
-            chan.flush()
+            try:
+                chan.write(b'a') #whatever
+                chan.flush()
+            except BrokenPipeError:
+                warning("input connection closed")
 
     def _childWorkerAckTarget(self, sock):
         """
@@ -322,7 +324,7 @@ class Worker(object):
         binChan = sock.makefile("rb")
         try:
             while(not self.workerShutdown.value):
-                if(binChan.read(1) != b'a'): #magic value
+                if(binChan.read(1) != b'a' and not self.workerShutdown.value): #magic value
                     raise ValueError("Wrong ack value")
 
                 self.outputWorkerLocks[sock].set()
@@ -481,6 +483,7 @@ class Job(object):
     '''
     A job to be executed on a Worker
     '''
+    isJob = True
 
     def setup(self, data):
         """

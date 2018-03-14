@@ -115,11 +115,7 @@ class Packet:
     def read(self, binChan):
         l = int.from_bytes(binChan.read(8), 'big') #moins lourd qu'un struct
         j = binChan.read(l).decode(encoding = 'utf-8')
-        try:
-            self.data = json.loads(j)
-        except json.decoder.JSONDecodeError:
-            error("Network error: JSON Decoder error" + str(j))
-
+        self.data = json.loads(j)
         binSize = int(self.data[self.BINARY_DATA_LENGTH_TAG])
         if(binSize > 0):
             self._readBinObject(binChan, binSize)
