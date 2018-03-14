@@ -78,6 +78,7 @@ class Streamer:
         infos = infos.decode().split('\n')
         dic = {}
         for info in infos:
+            #print(info)
             if info.split('=')[0] in metadataOI and dic.get(info.split('=')[0]) is None:
                 dic[info.split('=')[0]] = info.split('=')[1]
         dic["frame_rate_processing"] = str(self.img_rate)
@@ -125,7 +126,11 @@ class Streamer:
                    '-vcodec','rawvideo',
                    '-']
 
-        self.pipe = sp.Popen(command,stdout = sp.PIPE,bufsize=10**8)
+        FNULL              = open(os.devnull, 'w')
+        self.pipe = sp.Popen(command,
+            stdout=sp.PIPE,
+            stderr=FNULL,
+            bufsize=10**8)
         self.psProcess = psutil.Process(pid=self.pipe.pid)
         self.psProcess.suspend()
 
