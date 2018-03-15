@@ -110,8 +110,8 @@ class Supervisor():
                 traceback.print_exc()
                 return "err "+repr(ex)
         except:
-            traceback.print_exc()
-            return "Error in action"
+            #traceback.print_exc()
+            debug("Invalid configuration file.")
 
     def _clientTarget(self, sock):
         chan = sock.makefile("rwb")
@@ -192,7 +192,6 @@ class Supervisor():
         proc.stdin.flush()
 
 if __name__ == '__main__':
-
     sup = Supervisor()
     debug("Ready for input", 1)
     while(True):
@@ -218,4 +217,4 @@ if __name__ == '__main__':
         except:
             if(not sup.running):
                 break
-            traceback.print_exc()
+            debug("Wrong configuration file: " + str(l),0)

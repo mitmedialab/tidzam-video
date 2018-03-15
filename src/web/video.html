@@ -33,7 +33,7 @@ canvas {
 
 
 buffer      = {}
-bufferSize  = 10 // seconds
+bufferSize  = 5 // seconds
 
 function draw_boxing(packet, video_name){
   // Configure the canvas
@@ -84,8 +84,8 @@ function process_boxing_packet(packet){
   // ================= VIDEO OBJECT CREATION WITH ITS DRAWING LOOP
   // If the video is not loaded, we create the object and start the video
   if(!video){
-    var img = $('<video controls id="video_'+video_name+'" src="'+video_url+'" type="video/mp4"></video>'+
-                '<canvas id="canva_'+video_name+'"></canvas><br>');
+    var img = $('<p id="p_'+video_name+'"><video controls id="video_'+video_name+'" src="'+video_url+'" type="video/mp4"></video>'+
+                '<canvas id="canva_'+video_name+'"></canvas></p>');
     img.appendTo('#video_list');
     buffer[$("#video_"+video_name).get(0).id] = []
 
@@ -118,8 +118,7 @@ function process_boxing_packet(packet){
       // Try to draw the boxing each ms
       if (video_obj.ended || count > 10 * framerate){
         console.log("delete " + video_obj.ended + " " + count)
-        video_obj.remove()
-        $("#canva_"+video_name).remove()
+        $("#p_"+video_name).remove()
       }
       // Call the draw function two time between processing framerate
       else setTimeout(function(){draw(video_name, count)}, (1 / (2*framerate) ) * 1000);

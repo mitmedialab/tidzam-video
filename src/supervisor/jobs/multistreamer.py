@@ -129,7 +129,7 @@ class Multistreamer(Job):
             return None
 
         try:
-            self.startStreamer(streamerInfo)
+            return self.startStreamer(streamerInfo)
         except:
             traceback.print_exc()
 
@@ -153,13 +153,14 @@ class Multistreamer(Job):
                 streamer = Streamer(name, location, img_rate, resolution)
 
         except:
-            error("Cannot start streamer "+name+" ("+str(location)+")")
+            warning("Cannot start streamer "+name+" ("+str(location)+")", 0)
             if(_DEBUG_LEVEL >= 3):
                 traceback.print_exc()
-            return
+            return False
 
         self.streamers.append(streamer)
         self.streamerCount += 1
+        return True
 
     def loop(self, data):
         img = None
@@ -171,17 +172,21 @@ class Multistreamer(Job):
                 return None
 
             streamer = self.streamers[self.streamerIndex]
-
             img = streamer.get_image()
+
+            # If there is no frame, this is the end of the stream.
             if(type(img) == type(None)):
                 self.streamers.remove(streamer)
                 debug("Streamer "+streamer.name + " is terminated.",1)
-                self._startNewStreamerFromExploration()
+                while(len(self.streamers) < self.options[self.MAX_STREAMERS_TAG] and not self.streamerStartQueue.empty()):
+                    self._startNewStreamerFromExploration()
 
+                # If there is no more streamer, there is no more video to process
                 if(len(self.streamers) == 0):
                     ok("Reached end of multistreamer job, successfull exit")
                     self.shouldStop = True
                     return None
+
 
         img2 = np.array(Image.fromarray(img))
 
