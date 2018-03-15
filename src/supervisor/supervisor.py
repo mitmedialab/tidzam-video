@@ -147,28 +147,31 @@ class Supervisor():
         Thread(target=self._workerManagementThreadTarget, args=(workerConfig, name)).start()
 
     def handleConfigInput(self, workerConfig):
-        cfgObj = json.loads(workerConfig)
-        if(not 'workername' in cfgObj):
-            raise ValueError('The worker name is mandatory')
+        try:
+            cfgObj = json.loads(workerConfig)
+            if(not 'workername' in cfgObj):
+                raise ValueError('The worker name is mandatory')
 
-        name = cfgObj['workername']
-        action = False
-        if("action" in cfgObj.keys()):
-            debug("Got action for worker, skipping config check")
-            action = True
-        else:
-            debug("Checking config...", 1)
-            if(not config_checker.checkWorkerConfigSanity(workerConfig)):
-                return
-            debug("Config is OK", 1)
+            name = cfgObj['workername']
+            action = False
+            if("action" in cfgObj.keys()):
+                debug("Got action for worker, skipping config check")
+                action = True
+            else:
+                debug("Checking config...", 1)
+                if(not config_checker.checkWorkerConfigSanity(workerConfig)):
+                    return
+                debug("Config is OK", 1)
 
-        if(name in self.workers):
-            debug("Worker found: "+name, 1)
-            self._sendToWorker(name, workerConfig)
-        else:
-            if(action):
-                raise ValueError('The worker must exist to pass an action to it')
-            self.startWorker(workerConfig, name)
+            if(name in self.workers):
+                debug("Worker found: "+name, 1)
+                self._sendToWorker(name, workerConfig)
+            else:
+                if(action):
+                    raise ValueError('The worker must exist to pass an action to it')
+                self.startWorker(workerConfig, name)
+        except:
+            warning("Worker received an invalid configuration : " + str(workerConfig))
 
         time.sleep(1)
 
