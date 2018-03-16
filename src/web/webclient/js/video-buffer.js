@@ -7,7 +7,7 @@ function getPacketTime(packet) {
 }
 
 function getVideoURL(packet) {
-  return "https://tidzam.media.mit.edu/video-database/"+packet.meta.from.replace("tidzam-video","")
+  return "https://tidzam.media.mit.edu/"+packet.meta.path
   //return "file:///home/win32gg/Documents/ESILV/2017-2018/TidmarshCWD/TidmarshCWD/src/supervisor/data/"+packet.meta.from.replace("tidzam-video", "")
 }
 
@@ -151,24 +151,28 @@ function getPacketFromBuffer(video) {
 var FPS = 60
 var delay = 1000/FPS
 function renderVideos() {
-  //console.log(fullScreen)
-  if(fullScreen != null) {
+  try{
+    if(fullScreen != null) {
 
-    if(videos['fullScreen'] == null) {
-      videos['fullScreen'] = [document.getElementById("video_"+fullScreen), document.getElementById("canvas_"+fullScreen)]
+      if(videos['fullScreen'] == null) {
+        videos['fullScreen'] = [document.getElementById("video_"+fullScreen), document.getElementById("canvas_"+fullScreen)]
+      }
+
+      renderVideo(videos.fullScreen[0], videos.fullScreen[1], videos.fullScreen[1].width, videos.fullScreen[1].height)
+    } else {
+      videos['fullScreen'] = null
+
+      for(let i in videos) {
+        if(i == "fullScreen")
+          continue
+        let vid = videos[i][0]
+        let canvas = videos[i][1]
+        renderVideo(vid, canvas, canvas.width, canvas.height)
+      }
     }
-
-    renderVideo(videos.fullScreen[0], videos.fullScreen[1], videos.fullScreen[1].width, videos.fullScreen[1].height)
-  } else {
-    videos['fullScreen'] = null
-
-    for(let i in videos) {
-      if(i == "fullScreen")
-        continue
-      let vid = videos[i][0]
-      let canvas = videos[i][1]
-      renderVideo(vid, canvas, canvas.width, canvas.height)
-    }
+  }
+  catch(err){
+    // TODO
   }
 
 

@@ -1,6 +1,6 @@
 
-var addr = window.location.host || "127.0.0.1"
-const websocket_url = "ws://"+addr+":8765"
+var addr = window.location.host.split("/")
+const websocket_url = "ws://"+addr[0]+"/video-ws/"
 
 
 var connectionInfoID = 'connectionInfo'
@@ -20,13 +20,14 @@ function connect() {
   }
 
   sck.onclose = function() {
-    setState("Disconnected", "#cc5b5b")
-    closeFullScreen()
-    displayError()
+    //setState("Disconnected", "#cc5b5b")
+    console.log("here")
+    //closeFullScreen()
+    //displayError()
   }
 
   sck.onmessage = function(evt) {
-    // console.log(evt.data)
+    console.log(evt.data)
     try {
 
       blobToBuffer(evt.data, function(err, buff) {
@@ -38,6 +39,7 @@ function connect() {
         console.log(e)
     }
   }
+  return false
 }
 
 function blobToBuffer (blob, cb) {
