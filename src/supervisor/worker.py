@@ -440,6 +440,11 @@ class Worker(object):
                     debug("Input queue overflow", 0)
 
                 data = self.inputQueue.get()
+            else:
+                try:
+                    data = self.inputQueue.get(block=False)
+                except:
+                    pass
 
             out = self.job.loop(data)
 
