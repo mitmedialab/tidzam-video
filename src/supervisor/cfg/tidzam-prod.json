@@ -31,8 +31,8 @@
       "workername" : "streamer",
       "port":	25223,
       "jobname": "multistreamer",
-      "debuglevel": 0,
-      "jobdata":"",
+      "debuglevel": 1,
+      "jobdata":"cfg/multi_stream.json",
       "outputmethod":"distribute",
       "output": ["dl1","dl2"]
     },
@@ -51,6 +51,12 @@
       "jobname": "unifyvideo",
       "jobdata":{
         "unify-requests":[
+          {
+          "server":"https://tidmarsh.link:7443",
+          "apiKey":"tOPvRsuHCAU74ymg",
+          "starttime":null,
+          "endtime":null
+        }
         ],
         "port-ws":4652
       },
