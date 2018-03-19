@@ -154,6 +154,12 @@ class Multistreamer(Job):
             else:
                 streamer = Streamer(name, location, img_rate, resolution)
 
+            try:
+                streamer.meta["startTime"] = streamerInfo["startTime"]
+                streamer.meta["endTime"]   = streamerInfo["endTime"]
+            except:
+                debug("No information on starting and ending time on stream" + name,2 )
+
         except:
             warning("Cannot start streamer "+name+" ("+str(location)+")", 0)
             if(_DEBUG_LEVEL >= 3):
