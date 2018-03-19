@@ -33,7 +33,7 @@ canvas {
 
 
 buffer      = {}
-bufferSize  = 5 // seconds
+bufferSize  = 15 // seconds
 
 function draw_boxing(packet, video_name){
   // Configure the canvas
@@ -78,7 +78,10 @@ function process_boxing_packet(packet){
   //console.log(JSON.stringify(packet))
   framerate = packet.meta.meta.frame_rate_processing
   var video_name  = packet.meta.from.replace(/\./g,"_").replace(/-/g,"_").replace(/ /g,"_")
-  var video_url   = "https://tidzam.media.mit.edu/"+packet.meta.path
+  var video_url   = packet.meta.path
+  if (video_url.indexOf("http") == -1)
+    video_url = "https://tidzam.media.mit.edu/"+video_url
+  console.log(video_url)
   var video = $("#video_"+video_name).get(0)
 
   // ================= VIDEO OBJECT CREATION WITH ITS DRAWING LOOP
@@ -209,9 +212,33 @@ socket.onmessage = function(e){
       reader.readAsArrayBuffer(e.data);
       }
     }
+
+    /**************************************************************
+    ADMIN INTERFACE
+    * Connect to ws://XXXX/admin/
+    * Read the boxed frame from the server and show them
+    **************************************************************/
+    //https://tidmarsh.link:7443/api/2.0/recording/5aae10fb6bb61c79a4ff1caf/download?apiKey=tOPvRsuHCAU74ymg
+    var socket_admin = new WebSocket("ws://" + window.location.host + ":4652/unify/");
+    socket_admin.onmessage = function(e){
+      console.log(e)
+      }
+
+    $( document ).ready(function() {
+        $("#send_stream").click(function(){
+          socket_admin.send(JSON.stringify({
+            name:$("#name_url").val(),
+            url:$("#stream_url").val()
+          }))
+
+          console.log("Stream request :" + $("#name_url").val() + " - " + $("#stream_url").val() )
+        })
+    });
 </script>
 
-
+<div>
+  Name: <input type="text" id="name_url">URL: <input type="text" id="stream_url"><input id="send_stream" type="button" value="Send">
+</div>
 
 <div id="video_list"></div>
 <div id="img_list"></div>

@@ -3,25 +3,18 @@
   "options": {
     "default_img_rate":8,
     "defaut_resolution":"800x600",
-    "max_streamers":2,
+    "max_streamers":4,
     "video_extensions": ".mp4;.avi",
     "realtime": 1
 
   },
 
-  "stream": [
-
-  ],
-
   "folders": [
     {
-      "name":"tidzam-video",
-      "path":"/opt/video/",
+      "name":"tidmarsh-",
+      "path":"/mnt/tidmarsh-video/",
       "recursive":1
-    }
-
+}
   ]
-
-
 
 }

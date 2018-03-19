@@ -472,7 +472,7 @@ class Worker(object):
 
         self.job.destroy()
         #self.jobRunning.value = False
-        debug("Reached end of Launch target")
+        debug("Worker loop is terminated")
         self.stop(0)
 
     def _launchTarget(self):

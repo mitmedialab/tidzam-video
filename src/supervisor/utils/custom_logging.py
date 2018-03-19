@@ -6,7 +6,7 @@ import os.path
     DEBUG OUTPUT HANDLING
 """
 #debug level 0,1,2,3 the higher, the depper debug
-_DEBUG_LEVEL = 0  #FIXME not sensible to change
+_DEBUG_LEVEL = 3  #FIXME not sensible to change
 _DEBUG_DICT  = {0:"Minimum", 1: "Supervisor info", 2: "Workers status", 3: "Everything (debug)"}
 
 class Profiler():
