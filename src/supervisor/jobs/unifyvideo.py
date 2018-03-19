@@ -17,12 +17,11 @@ class Unifyvideo(Job):
 
     def unify(self, parameters):
         try:
-            response = self.http.request("GET", parameters["server"] + '/api/2.0/recording',fields=parameters)
+            response = self.http.request("GET", parameters["unify"] + '/api/2.0/recording',fields=parameters)
             items = json.loads(response.data.decode('utf8'))
-            debug("Connected to " + parameters["server"] + "("+str(len(items['data']))+" available videos)",1)
+            debug("Connected to " + parameters["unify"] + "("+str(len(items['data']))+" available videos)",1)
         except:
-            debug("Unable to connect to " + parameters["server"],0)
-            traceback.extract_stack()
+            debug("Unable to connect to " + parameters["unify"],0)
             return None
 
         return items['data']
@@ -36,15 +35,19 @@ class Unifyvideo(Job):
         self.thread.start()
 
         # Load the
-        for req in conf["unify-requests"]:
-            rsp = self.unify(req)
-            for r in rsp:
-                requests.append({
-                    "name":r["meta"]["cameraName"]+"-"+str(r["endTime"]),
-                    "url":req["server"] + '/api/2.0/recording/'+r["_id"]+'/download?apiKey='+req["apiKey"],
-                    "startTime":r["startTime"],
-                    "endTime":r["endTime"]
-                    })
+        for req in conf["streams"]:
+            if "unify" in req:
+                rsp = self.unify(req)
+                if rsp is not None:
+                    for r in rsp:
+                        requests.append({
+                            "name":r["meta"]["cameraName"]+"-"+str(r["endTime"]),
+                            "url":req["unify"] + '/api/2.0/recording/'+r["_id"]+'/download?apiKey='+req["apiKey"],
+                            "startTime":r["startTime"],
+                            "endTime":r["endTime"]
+                            })
+            else:
+                requests.append(req)
 
     def loop(self, data):
         try:

@@ -32,7 +32,7 @@
       "port":	25223,
       "jobname": "multistreamer",
       "debuglevel": 1,
-      "jobdata":"cfg/multi_stream.json",
+      "jobdata":"",
       "outputmethod":"distribute",
       "output": ["dl1","dl2"]
     },
@@ -43,24 +43,33 @@
       "jobdata":{
         "port":8765
       },
-      "debuglevel": 0
+      "debuglevel": 1
     },
     {
       "workername" : "unify",
       "port":	25221,
       "jobname": "unifyvideo",
       "jobdata":{
-        "unify-requests":[
+        "streams":[
           {
-          "server":"https://tidmarsh.link:7443",
+          "unify":"https://tidmarsh.link:7443",
           "apiKey":"tOPvRsuHCAU74ymg",
           "starttime":null,
           "endtime":null
-        }
+        },
+        {
+      	    "name": "camera1",
+      	    "url":"rtsp://tidmarsh.link:7447/5a9ee6046bb61c79a4fba8cc_2"
+      	},
+          {
+            "name":"tidzam-video",
+            "path":"/opt/video/",
+            "recursive":1
+          }
         ],
         "port-ws":4652
       },
-      "debuglevel": 0,
+      "debuglevel": 2,
       "output": ["streamer"]
       }
     ]

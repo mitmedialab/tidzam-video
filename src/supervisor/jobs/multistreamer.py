@@ -82,34 +82,39 @@ class Multistreamer(Job):
 
             if('stream'in self.cfg):
                 for streamerInfo in self.cfg['stream']:
-                    self.startStreamer(streamerInfo)
+                    self.streamerStartQueue.put(streamerInfo)
+                    #self.startStreamer(streamerInfo)
 
             if('folders' in self.cfg):
                 #prof.enter("FOLDER_EXPLORATION")
                 debug("Starting folder exploration...", 3)
-                for streamerInfo in self.cfg['folders']:
-                    if(getWithDefault(streamerInfo, "recursive")):
-                        self._recFolderExploration(streamerInfo['path'], streamerInfo)
+                self.load_folder(self, self.cfg['folders'])
 
                 #prof.exit()
-                while(self.streamerCount < self.options[self.MAX_STREAMERS_TAG] and not self.streamerStartQueue.empty()):
-                    self.loadStreamFromQueue()
+            while(self.streamerCount < self.options[self.MAX_STREAMERS_TAG] and not self.streamerStartQueue.empty()):
+                self.loadStreamFromQueue()
         ok("Multi streamers process ready.")
 
+    def load_folder(self, conf):
+        for streamerInfo in conf:
+            if(getWithDefault(streamerInfo, "recursive")):
+                self._recFolderExploration(streamerInfo['path'], streamerInfo)
 
     def _recFolderExploration(self, folderPath, streamerInfo):
-        for b in listdir(folderPath):
-            file = os.path.abspath(folderPath)+os.path.sep+b
-            if(os.path.isfile(file)):
-                if(os.path.splitext(file)[1] in self.options[self.VIDEO_EXTENSION_TAG]):
-                    info = copy.copy(streamerInfo)
-                    info['path'] = file
-                    info['name'] = info['name']+os.path.basename(file)
-                    self.streamerStartQueue.put(info)
-                    debug("Found: "+file, 3)
-            else:
-                self._recFolderExploration(file, streamerInfo)
-
+        try:
+            for b in listdir(folderPath):
+                file = os.path.abspath(folderPath)+os.path.sep+b
+                if(os.path.isfile(file)):
+                    if(os.path.splitext(file)[1] in self.options[self.VIDEO_EXTENSION_TAG]):
+                        info = copy.copy(streamerInfo)
+                        info['path'] = file
+                        info['name'] = info['name']+os.path.basename(file)
+                        self.streamerStartQueue.put(info)
+                        debug("Found: "+file, 3)
+                else:
+                    self._recFolderExploration(file, streamerInfo)
+        except FileNotFoundError:
+            debug("No such file or directory: " + folderPath,1)
 
     def _shutdownAllStreamers(self):
         debug("Stopping all streamers", 2)
@@ -158,7 +163,7 @@ class Multistreamer(Job):
                 streamer.meta["startTime"] = streamerInfo["startTime"]
                 streamer.meta["endTime"]   = streamerInfo["endTime"]
             except:
-                debug("No information on starting and ending time on stream" + name,2 )
+                debug("No information on starting and ending time on stream" + name, 2)
 
         except:
             warning("Cannot start streamer "+name+" ("+str(location)+")", 0)
@@ -171,9 +176,14 @@ class Multistreamer(Job):
         return True
 
     def loop(self, data):
+        # Add the configuration received through the tidzam chain
         if data is not None:
-            self.streamerStartQueue.put(data.data)
+            if "path" in data.data:
+                self.load_folder([data.data])
+            else:
+                self.streamerStartQueue.put(data.data)
 
+        # Select one frame from the available streamer and send it to the next node in tidzam chain
         img = None
         while type(img) == type(None):
             # Try to load new streamers if necessary

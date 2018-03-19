@@ -16,7 +16,7 @@
   "folders": [
     {
       "name":"tidzam-video",
-      "path":"/opt/video/",
+      "path":"/mnt/tidmarsh-video/",
       "recursive":1
     }
 
