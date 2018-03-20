@@ -67,7 +67,6 @@ class WSserver(WebSocket):
 
     def handleMessage(self):
         try:
-            print(self.data)
             if(not checkStreamerConfigSanity(self.data)):
                 self.sendMessage({"error":"Bad request", req:self.data})
             else:

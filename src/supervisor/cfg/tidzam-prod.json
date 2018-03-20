@@ -27,6 +27,38 @@
       "output": ["websocket"]
     },
     {
+      "workername" : "dl3",
+      "port":	25226,
+      "jobname": "boxer.darknet.boxerjob",
+      "jobdata":"none",
+      "debuglevel": 0,
+      "output": ["websocket"]
+    },
+    {
+      "workername" : "dl4",
+      "port":	25227,
+      "jobname": "boxer.darknet.boxerjob",
+      "jobdata":"none",
+      "debuglevel": 0,
+      "output": ["websocket"]
+    },
+    {
+      "workername" : "dl5",
+      "port":	25228,
+      "jobname": "boxer.darknet.boxerjob",
+      "jobdata":"none",
+      "debuglevel": 0,
+      "output": ["websocket"]
+    },
+    {
+      "workername" : "dl6",
+      "port":	25229,
+      "jobname": "boxer.darknet.boxerjob",
+      "jobdata":"none",
+      "debuglevel": 0,
+      "output": ["websocket"]
+    },
+    {
 
       "workername" : "streamer",
       "port":	25223,
@@ -34,7 +66,7 @@
       "debuglevel": 1,
       "jobdata":"",
       "outputmethod":"distribute",
-      "output": ["dl1","dl2"]
+      "output": ["dl1","dl2","dl3","dl4","dl5","dl6"]
     },
     {
       "workername" : "websocket",
@@ -43,7 +75,7 @@
       "jobdata":{
         "port":8765
       },
-      "debuglevel": 1
+      "debuglevel":0
     },
     {
       "workername" : "unify",
@@ -69,7 +101,7 @@
         ],
         "port-ws":4652
       },
-      "debuglevel": 2,
+      "debuglevel": 1,
       "output": ["streamer"]
       }
     ]

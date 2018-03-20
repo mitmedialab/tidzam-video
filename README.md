@@ -69,7 +69,7 @@ this will disable gpu usage
 - Run ``` scripts/start_supervisor.sh ``` to start the supervisor on this pc
 - Run ``` scripts/start_local.sh ``` to start the local instance (everything on this pc)
 **Tid'Zam video is now running**
- 
+
 ## Configuration
 
 Config files are in ``` src/supervisor/cfg ```
@@ -144,9 +144,11 @@ Each worker is assigned a single job,
 The jobs are defined in ``` src/supervisor/jobs ```
 
 #### Job list
-- djangotransfer:  transfers a input image data to the django server given in input
+- unifyvideo: A websocket interface which allows multistreamer job to be configured remotely: for local files, remote stream or unify infrastructure processing.
 - multistreamer:  reads from several video sources at the same time and outputs an image cycling through each source
 - boxer/darknet/boxerjob: given an input image, returns a list of animals in the image
+- websocket: broadcasts processing results to web consumers through websocket
+- djangotransfer:  transfers a input image data to the django server given in input
 - identityjob: outputs its input
 
 ##### Debug Jobs
@@ -171,7 +173,39 @@ A worker can either **distribute** or **duplicate** its output
 If **distribute** is used the output will go to the first available worker
 if **duplicate** is used the output will go to all of the listed output workers
 
-### Multistreamer Configuration
+### Unifyvideo Job
+The unify job can requested indifferently through its initial configuration file or remotely by its websocket. When new stream are added, the Unifyvideo job requests the Multistreamer to process them. with The following example presents the different possibilities from unify-video API, through a direct Web link or from a local file directory.
+```
+{
+  "workername" : "unify",
+  "port":	25221,
+  "jobname": "unifyvideo",
+  "jobdata":{
+    "streams":[
+      {
+      "unify":"https://example:7443",
+      "apiKey":"gfdsgfsgfdsgfds",
+      "starttime":null,
+      "endtime":null
+    },
+    {
+        "name": "camera1",
+        "url":"rtsp://tidmarsh.link:7447/5a9ee6046bb61c79a4fba8cc_2"
+    },
+      {
+        "name":"tidzam-video",
+        "path":"/opt/video/",
+        "recursive":1
+      }
+    ],
+    "port-ws":4652
+  },
+  "debuglevel": 1,
+  "output": ["streamer"]
+  }
+```
+
+### Multistreamer Job
 ```
  {
   "options": {
