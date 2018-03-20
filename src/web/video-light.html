@@ -1,13 +1,23 @@
 
-<link rel="stylesheet" href="//code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
-<script src="//code.jquery.com/jquery-1.10.2.js"></script>
-<script src="//code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+<link rel="stylesheet" href="/resources/demos/style.css">
+<script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
 
 <script src="video-browser.js"></script>
 
 
-
+<head>
 <style>
+body {
+  font-family: 'Tangerine', serif;
+}
+
 #video_list{
   text-align:center;
 }
@@ -16,16 +26,53 @@
   text-align:center;
 }
 
-.video_div img{
+#div_add_stream{
+  border-style:solid;
+  border-width:1px;
   width:250px;
 }
 
-video{
+#div_add_stream p{
+  text-align:center;
+}
+
+
+.debug_div {
+}
+
+.debug_div img{
+  width:250px;
+}
+
+.meta{]
+  text-align:center;
+  font-size: 12px;
+}
+
+.videos{
+  position:relative;
   width:400px;
+  height:280px;
+  float:left;
+  margin-left:10px;
+  border-style:solid;
+  border-width:1px;
+}
+
+video{
+  position:absolute;
+  top: 0;
+  left: 0;
+  width:400px;
+  z-index: -30;
 }
 
 canvas {
-  position:relative;
+  top: 0;
+  left: 0;
+  width:400px;
+  height:240px;
+  z-index: 30;
 }
 </style>
 
@@ -33,7 +80,7 @@ canvas {
 
 
 buffer      = {}
-bufferSize  = 15 // seconds
+bufferSize  = 5 // seconds
 
 function draw_boxing(packet, video_name){
   // Configure the canvas
@@ -76,19 +123,19 @@ function draw_boxing(packet, video_name){
 
 function process_boxing_packet(packet){
   //console.log(JSON.stringify(packet))
-  framerate = packet.meta.meta.frame_rate_processing
+  framerate       = packet.meta.meta.frame_rate_processing
   var video_name  = packet.meta.from.replace(/\./g,"_").replace(/-/g,"_").replace(/ /g,"_")
+  var video       = $("#video_"+video_name).get(0)
   var video_url   = packet.meta.path
-  if (video_url.indexOf("http") == -1)
-    video_url = "https://tidzam.media.mit.edu/"+video_url
-  console.log(video_url)
-  var video = $("#video_"+video_name).get(0)
+
+  if (video_url.indexOf("http") == -1 && video_url.indexOf("rtsp") == -1)
+    video_url = "http://tidzam.media.mit.edu"+video_url
 
   // ================= VIDEO OBJECT CREATION WITH ITS DRAWING LOOP
   // If the video is not loaded, we create the object and start the video
   if(!video){
-    var img = $('<p id="p_'+video_name+'"><video controls id="video_'+video_name+'" src="'+video_url+'" type="video/mp4"></video>'+
-                '<canvas id="canva_'+video_name+'"></canvas></p>');
+    var img = $('<div class="videos" id="p_'+video_name+'"><video controls id="video_'+video_name+'" src="'+video_url+'" type="video/mp4"></video>'+
+                '<canvas id="canva_'+video_name+'"></canvas><p class="meta" id="meta_'+video_name+'">No video information.</p></div>');
     img.appendTo('#video_list');
     buffer[$("#video_"+video_name).get(0).id] = []
 
@@ -101,6 +148,12 @@ function process_boxing_packet(packet){
       else count ++;
       // Get the frame time of the next boxing in the queue
       packet_currentTime    = Math.floor(buffer[video_obj.id][0].meta.frame_count / framerate)
+
+      // Print Meta data
+      if (buffer[video_obj.id][0].meta.meta.startTime)
+        $('#meta_'+video_name).html( buffer[video_obj.id][0].meta.from + ' <br> ' +
+            (new Date(buffer[video_obj.id][0].meta.meta.startTime + (video_obj.currentTime)*1000 ) ).toLocaleString() + ' - ' +
+            buffer[video_obj.id][0].meta.meta.frame_rate_processing + " FPS " +buffer[video_obj.id][0].meta.meta.width+'x'+buffer[video_obj.id][0].meta.meta.height )
 
       // If the next boxing in queue is corresponding to current video frame, we draw it
       if (Math.abs(video_obj.currentTime - packet_currentTime) < 0.1 ){
@@ -116,7 +169,7 @@ function process_boxing_packet(packet){
           buffer[video_obj.id].splice(i,1)
       }
       catch(err){
-        console.log("Drawing box no ready")
+        ;// TODO console.log("Drawing box no ready")
       }
       // Try to draw the boxing each ms
       if (video_obj.ended || count > 10 * framerate){
@@ -191,7 +244,7 @@ socket.onmessage = function(e){
 
 
     if(!$("#img_"+video_name).get(0)){
-      var img = $('<div class="video_div"><img id="img_'+video_name+'"><br><span>'+packet.meta.from+' ('+packet.meta.shape+')</span><div>');
+      var img = $('<div class="debug_div"><img id="img_'+video_name+'"><br><span>'+packet.meta.from+' ('+packet.meta.shape+')</span><div>');
       img.appendTo('#img_list');
     }
     $("#img_"+video_name).attr('src', imageUrl);
@@ -225,20 +278,47 @@ socket.onmessage = function(e){
       }
 
     $( document ).ready(function() {
-        $("#send_stream").click(function(){
-          socket_admin.send(JSON.stringify({
-            name:$("#name_url").val(),
-            url:$("#stream_url").val()
-          }))
+      dialog = $( "#div_add_stream" ).dialog({
+        autoOpen: false,
+        height: 200,
+        width: 350,
+        modal: true,
+        buttons: {
+          "Add stream": function(){
+            socket_admin.send(JSON.stringify({
+              name:$("#name_url").val(),
+              url:$("#stream_url").val()
+            }))
 
-          console.log("Stream request :" + $("#name_url").val() + " - " + $("#stream_url").val() )
-        })
+            console.log("Stream request :" + $("#name_url").val() + " - " + $("#stream_url").val() )
+          },
+          Cancel: function() {
+            dialog.dialog( "close" );
+          }
+        },
+        close: function() {
+          form[ 0 ].reset();
+          allFields.removeClass( "ui-state-error" );
+        }
+      });
+
+      $( "#add_stream" ).button().on( "click", function() {
+        dialog.dialog( "open" );
+      });
     });
 </script>
-
-<div>
-  Name: <input type="text" id="name_url">URL: <input type="text" id="stream_url"><input id="send_stream" type="button" value="Send">
+</head>
+<body>
+<div id="div_add_stream" title="Add new web stream">
+  Name: <input type="text" id="name_url"><br>
+  URL: <input type="text" id="stream_url"><br>
 </div>
+<input id="add_stream" type="button" value="Create">
+
+
 
 <div id="video_list"></div>
 <div id="img_list"></div>
+
+</body>
+</html>
