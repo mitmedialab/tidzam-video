@@ -196,7 +196,9 @@ def detect(net, meta, image, thresh=.2, hier_thresh=.4, nms=.45, nb_classes=9418
     for j in range(num):
         arr = (ctypes.c_float * nb_classes).from_address(addressof(probs[j].contents))
         arr = np.ndarray(buffer=arr, dtype=np.float32, shape=(nb_classes))
-        for i in np.where(arr > 0)[0]:
+        i = np.argmax(arr)
+        if (arr[int(i)] > 0):
+        #for i in np.where(arr > 0)[0]:
             res.append((meta.names[i], float(arr[int(i)]), (boxes[j].x, boxes[j].y, boxes[j].w, boxes[j].h)))
     debug("LABELISATION 1 "+str(sw.get_time()), 3)
 
