@@ -2,7 +2,7 @@ import copy
 import json
 from multiprocessing import Queue
 from os import listdir
-import os
+import os, time
 from utils.config_checker import checkConfigSanity
 from utils.custom_logging import debug,error,warning,ok, _DEBUG_LEVEL
 from utils.streamer import *
@@ -65,34 +65,45 @@ class Multistreamer(Job):
         }
 
         debug("Starting Multi Streamer...", 2)
-        debug("Using config file: "+str(data), 3)
-        if (str(data) != ""):
-            cfgTxt = read(str(data))
+        debug("Using config file: "+str(data), 1)
 
-            debug(cfgTxt, 3)
+        if data is not None and str(data) != "":
+            try:
+                if ( type(data) == type("") ):
+                    cfgTxt = read(str(data))
 
-            debug("Checking multistreamer config sanity...", 2)
-            if(not checkMultiStreamerConfigSanity(cfgTxt)): # pass this point the configuration is considered acceptable
-                raise ValueError("Error in configuration")
-
-            self.cfg = json.loads(cfgTxt)
-            self.setGlobalOptions(getWithDefault(self.cfg, "options"))
-            debug("Config loaded succesfully", 3)
+                elif ( type(data) == type({}) ):
+                    cfgTxt = json.dumps(data)
 
 
-            if('stream'in self.cfg):
-                for streamerInfo in self.cfg['stream']:
-                    self.streamerStartQueue.put(streamerInfo)
-                    #self.startStreamer(streamerInfo)
+                debug(cfgTxt, 3)
 
-            if('folders' in self.cfg):
-                #prof.enter("FOLDER_EXPLORATION")
-                debug("Starting folder exploration...", 3)
-                self.load_folder(self, self.cfg['folders'])
+                debug("Checking multistreamer config sanity...", 2)
+                if(not checkMultiStreamerConfigSanity(cfgTxt)): # pass this point the configuration is considered acceptable
+                    raise ValueError("Error in configuration")
 
-                #prof.exit()
-            while(self.streamerCount < self.options[self.MAX_STREAMERS_TAG] and not self.streamerStartQueue.empty()):
-                self.loadStreamFromQueue()
+                self.cfg = json.loads(cfgTxt)
+                self.setGlobalOptions(getWithDefault(self.cfg, "options"))
+                debug("Config loaded succesfully", 3)
+
+
+                if('stream'in self.cfg):
+                    for streamerInfo in self.cfg['stream']:
+                        self.streamerStartQueue.put(streamerInfo)
+                        #self.startStreamer(streamerInfo)
+
+                if('folders' in self.cfg):
+                    #prof.enter("FOLDER_EXPLORATION")
+                    debug("Starting folder exploration...", 3)
+                    self.load_folder(self, self.cfg['folders'])
+
+                    #prof.exit()
+                while(self.streamerCount < self.options[self.MAX_STREAMERS_TAG] and not self.streamerStartQueue.empty()):
+                    self.loadStreamFromQueue()
+
+            except FileNotFoundError:
+                warning("Configuration file not found: " + str(data))
+
         ok("Multi streamers process ready.")
 
     def load_folder(self, conf):
@@ -192,6 +203,7 @@ class Multistreamer(Job):
 
             # If there is no more streamer, there is no more video to process
             if(len(self.streamers) == 0):
+                time.sleep(0.5)
                 return None
 
             # Select one streamer and extract the frame
