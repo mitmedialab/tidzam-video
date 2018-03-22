@@ -35,8 +35,8 @@ class Boxerjob(Job):
 		try:
 			image = data.img
 		except:
-			ok("End of job, exit.")
-			self.shouldStop = True
+			warning("nothing to do.",2)
+			time.sleep(0.2)
 			return data
 
 		results = self.detector.run(image)
