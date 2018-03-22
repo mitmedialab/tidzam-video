@@ -173,7 +173,7 @@ class Stopwatch:
 
         return t
 
-def detect(net, meta, image, thresh=.2, hier_thresh=.2, nms=.45, nb_classes=9418):
+def detect(net, meta, image, thresh=.2, hier_thresh=.4, nms=.45, nb_classes=9418):
     sw = Stopwatch()
     debug("Darknet running on image...", 3)
 
