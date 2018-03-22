@@ -1,11 +1,16 @@
 from . import darknet as dn
 import numpy as np
+import io
 
 class Detector:
 	def __init__(self, config, weights, meta):
 		dn.set_gpu(0)
-		self.net = dn.load_net(config, weights, 0)
-		self.meta = dn.load_meta(meta)
+		f = io.BytesIO()
+		
+		with dn.stderr_redirector(f):
+			self.net = dn.load_net(config, weights, 0)
+			self.meta = dn.load_meta(meta)
+		#print('Got stdout: "{0}"'.format(f.getvalue().decode('utf-8')))
 
 	def run(self, image_array):
 		image = self._array_to_image(image_array)

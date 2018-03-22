@@ -4,10 +4,13 @@ from time import time
 import math
 import random
 import numpy as np
-import os
-from utils.custom_logging import debug
+import os,sys
+from utils.custom_logging import debug, _DEBUG_LEVEL
 
-meta_classes = [0, 2, 4, 5, 6, 7, 10, 5170, 5174, 5177] + [i for i in range(6454, 9418)]
+from contextlib import contextmanager
+import io
+import tempfile
+import ctypes
 
 def sample(probs):
     s = sum(probs)
@@ -37,7 +40,7 @@ class IMAGE(Structure):
 class METADATA(Structure):
     _fields_ = [("classes", c_int),
                 ("names", POINTER(c_char_p))]
-bnbc
+
 lib_path = os.path.dirname(__file__)+"/libdarknet.so"
 lib = CDLL(lib_path, RTLD_GLOBAL)
 lib.network_width.argtypes = [c_void_p]
@@ -106,6 +109,47 @@ predict_image.restype = POINTER(c_float)
 network_detect = lib.network_detect
 network_detect.argtypes = [c_void_p, IMAGE, c_float, c_float, c_float, POINTER(BOX), POINTER(POINTER(c_float))]
 
+c_stderr = ctypes.c_void_p.in_dll(lib, 'stderr')
+
+@contextmanager
+def stderr_redirector(stream):
+    if _DEBUG_LEVEL > 1:
+        yield
+        return
+    # The original fd stderr points to. Usually 1 on POSIX systems.
+    original_stderr_fd = sys.stderr.old_std.fileno()
+
+    def _redirect_stderr(to_fd):
+        """Redirect stderr to the given file descriptor."""
+        # Flush the C-level buffer stderr
+        lib.fflush(c_stderr)
+        # Flush and close sys.stderr - also closes the file descriptor (fd)
+        try:
+            sys.stderr.old_std.close()
+        except:
+            sys.stderr.close()
+        # Make original_stderr_fd point to the same file as to_fd
+        os.dup2(to_fd, original_stderr_fd)
+        # Create a new sys.stderr that points to the redirected fd
+        sys.stderr = io.TextIOWrapper(os.fdopen(original_stderr_fd, 'wb'))
+
+    # Save a copy of the original stderr fd in saved_stderr_fd
+    saved_stderr_fd = os.dup(original_stderr_fd)
+    try:
+        # Create a temporary file and redirect stderr to it
+        tfile = tempfile.TemporaryFile(mode='w+b')
+        _redirect_stderr(tfile.fileno())
+        # Yield to caller, then redirect stderr back to the saved fd
+        yield
+        _redirect_stderr(saved_stderr_fd)
+        # Copy contents of temporary file to the given stream
+        tfile.flush()
+        tfile.seek(0, io.SEEK_SET)
+        stream.write(tfile.read())
+    finally:
+        tfile.close()
+        os.close(saved_stderr_fd)
+
 def classify(net, meta, im):
     out = predict_image(net, im)
     res = []
@@ -129,9 +173,9 @@ class Stopwatch:
 
         return t
 
-def detect(net, meta, image, thresh=.2, hier_thresh=.5, nms=.45):
+def detect(net, meta, image, thresh=.2, hier_thresh=.2, nms=.45, nb_classes=9418):
     sw = Stopwatch()
-    debug("Darknet running on image...", 2)
+    debug("Darknet running on image...", 3)
 
     debug("DARKNET TIMINGS", 3)
 
@@ -149,12 +193,15 @@ def detect(net, meta, image, thresh=.2, hier_thresh=.5, nms=.45):
 
     res = []
 
-    for i in meta_classes:
-        for j in range(num):
-            if probs[j][i] > 0:
-                res.append((meta.names[i], probs[j][i], (boxes[j].x, boxes[j].y, boxes[j].w, boxes[j].h)))
-    debug("LABELISATION "+str(sw.get_time()), 3)
-    res = sorted(res, key=lambda x: -x[1])
+    for j in range(num):
+        arr = (ctypes.c_float * nb_classes).from_address(addressof(probs[j].contents))
+        arr = np.ndarray(buffer=arr, dtype=np.float32, shape=(nb_classes))
+        for i in np.where(arr > 0)[0]:
+            res.append((meta.names[i], float(arr[int(i)]), (boxes[j].x, boxes[j].y, boxes[j].w, boxes[j].h)))
+    debug("LABELISATION 1 "+str(sw.get_time()), 3)
 
+    res = sorted(res, key=lambda x: -x[1])
     free_ptrs(cast(probs, POINTER(c_void_p)), num)
+
+    #print((res))
     return res
