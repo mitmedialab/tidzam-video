@@ -40,12 +40,15 @@ class Unifyvideo(Job):
                 rsp = self.unify(req)
                 if rsp is not None:
                     for r in rsp:
+                        if "locked" in req:
+                            if req["locked"] == True and r["locked"] == False:
+                                continue
                         requests.append({
-                            "name":r["meta"]["cameraName"]+"-"+str(r["endTime"]),
-                            "url":req["unify"] + '/api/2.0/recording/'+r["_id"]+'/download?apiKey='+req["apiKey"],
-                            "startTime":r["startTime"],
-                            "endTime":r["endTime"]
-                            })
+                                "name":r["meta"]["cameraName"]+"-"+str(r["endTime"]),
+                                "url":req["unify"] + '/api/2.0/recording/'+r["_id"]+'/download?apiKey='+req["apiKey"],
+                                "startTime":r["startTime"],
+                                "endTime":r["endTime"]
+                                })
             else:
                 requests.append(req)
 
