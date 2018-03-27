@@ -181,6 +181,7 @@ class Multistreamer(Job):
             if(_DEBUG_LEVEL >= 3):
                 traceback.print_exc()
             return False
+        ok("Started Streamer "+str(name)+" "+str(location))
 
         self.streamers.append(streamer)
         self.streamerCount += 1

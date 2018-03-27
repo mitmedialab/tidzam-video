@@ -7,8 +7,9 @@ function getPacketTime(packet) {
 }
 
 function getVideoURL(packet) {
-  return "https://tidzam.media.mit.edu/"+packet.meta.path
-  //return "file:///home/win32gg/Documents/ESILV/2017-2018/TidmarshCWD/TidmarshCWD/src/supervisor/data/"+packet.meta.from.replace("tidzam-video", "")
+  //return "https://tidzam.media.mit.edu/"+packet.meta.path
+  return packet.meta.path
+
 }
 
 /**
@@ -42,18 +43,39 @@ function getOrMakeVideo(packet) {
   //append video to the graveyard
   vid = document.createElement("video")
   vid.id  = "video_"+name
+  vid.name = name
   vid.src = getVideoURL(packet)
   vid.type = "video/mp4"
   vid.volume = 0
   vid.autoplay = 1
+
+  vid.addEventListener('ended',videoEndHandler,false);
 
   document.getElementById("video-garbage").appendChild(vid)
   vid.play()
 
 
   return vid
-
 }
+
+function removeStream(name) {
+  if(!(name in videos))
+    return
+
+  if(fullScreen == name)
+    closeFullScreen()
+
+  document.getElementById("video_"+name).remove() //remove video source
+  document.getElementById("canvas_"+name).parentElement.remove() //remove canvas
+  delete videos[name]
+  delete global_buffer["video_"+name]
+}
+
+function videoEndHandler(vid) {
+  console.log(vid.target.name+" ended")
+  removeStream(vid.target.name)
+}
+
 
 /**
   Add the video to the renderer list
@@ -104,7 +126,7 @@ function handlePacket(packet) {
       return packet1.meta.frame_count - packet2.meta.frame_count;
   });
 
-  if(packet_time < video_time || Math.abs(packet_time - video_time) > 2) {
+  if(packet_time < video_time /*|| Math.abs(packet_time - video_time) > 2*/ ) {
     console.log("Video "+video.id+" is restarting at "+packet_time)
     video.currentTime = Math.floor(packet_time)
     video.play()
