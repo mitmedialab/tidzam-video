@@ -20,14 +20,14 @@ function connect() {
   }
 
   sck.onclose = function() {
-    //setState("Disconnected", "#cc5b5b")
+    setState("Disconnected", "#cc5b5b")
     console.log("here")
-    //closeFullScreen()
-    //displayError()
+    closeFullScreen()
+    displayError()
   }
 
   sck.onmessage = function(evt) {
-    console.log(evt.data)
+
     try {
 
       blobToBuffer(evt.data, function(err, buff) {
@@ -132,6 +132,8 @@ function formatVideoName(name) {
 function handleCameraPacket(packet) {
   let image  = packet.img
   let meta   = packet.meta
+
+  console.log(meta)
 
   let canvas = getOrMakeCanvas(packet)
 
