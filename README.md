@@ -92,38 +92,24 @@ The first section "units" defines the list of server members of the Tidzam-video
 ```
 # Installation
 
-
-
 ## Dependencies
 - Python 3.5+
 - CUDA and cudNN
 - FFmpeg and FFprobe
 
 
-### Dependencies Installation
-
-For python dependencies, run
+## Supervisor Installation
+A supervisor should be installed on every servers which are part of Tidzam-video cluster. This process receives the orders from the master node in order to start and configure the other job worker on the machine.
 ```
-./install_python_packages.sh
-```
-
-For ffmpeg
-```
-sudo apt-get install ffmpeg
-```
-**If you plan on using the processing part you will have to install the darknet job, see below**
-#### Darknet Job installation
-Run the installation script from project root:
-```
-sudo ./install_boxer_job.sh
+tidzam-video install
 ```
 
-**NOTE**: If CUDA or CUDNN are not installed properly you will notice errors when building. To use CPU computation (hence no cuda or cudnn) use the following header in
->src/supervisor/jobs/boxer/MakefileDarknet
-
-before running the install_boxer_job.sh script
-
-Change header to:
+## Classifier Job Installation
+In addition of the supervisor, the servers, which runs a classifier, need to install the darknet yolo classifier.
+```
+tidzam-video install_darknet
+```
+**By default, GPU support is activated which requires CUDA and cuDNN. If the server doesn t have CUDA enable GPU, the MakefileDarknet in src/supervisor/jobs/boxer/ must be edited in order to disable the GPU support.**
 ```
 GPU=0
 CUDNN=0
@@ -133,123 +119,10 @@ ARM_NEON=0
 OPENMP=1
 DEBUG=0
 ```
-this will disable gpu usage
-## Quickstart
 
-- Clone this repo
-- Install dependencies (check Dependencies Installation)
-- Run ``` scripts/start_web_server.sh ``` to start the django web server
-- Run ``` scripts/start_supervisor.sh ``` to start the supervisor on this pc
-- Run ``` scripts/start_local.sh ``` to start the local instance (everything on this pc)
-**Tid'Zam video is now running**
 
-## Configuration
-
-Config files are in ``` src/supervisor/cfg ```
-
-To Tid'Zam main config file for a local deployment is ``` alone_cluster.json ```
-
-The default is:
-```
-{
-
-  "units": [
-    {
-      "name":"serv1.network",
-      "address":"x.x.x.x"
-    },
-    {
-      "name":"serv2.network",
-      "address":"x.x.x.x"
-    }
-  ],
-
-"workers": {
-
-  "serv1.network": [
-    {
-      "workername" : "dl1",
-      "port":	25224,
-      "jobname": "boxer.darknet.boxerjob",
-      "jobdata":"none",
-      "debuglevel": 0,
-      "output": ["websocket"]
-    },
-    {
-      "workername" : "dl2",
-      "port":	25225,
-      "jobname": "boxer.darknet.boxerjob",
-      "jobdata":"none",
-      "debuglevel": 0,
-      "output": ["websocket"]
-    }],
-    "serv2.network": [
-    {
-
-      "workername" : "streamer",
-      "port":	25223,
-      "jobname": "multistreamer",
-      "debuglevel": 1,
-      "jobdata":{
-        "options": {
-          "default_img_rate":10,
-          "defaut_resolution":"800x600",
-          "max_streamers":3,
-          "video_extensions": ".mp4;.avi",
-          "realtime": 1
-        }
-      },
-      "outputmethod":"distribute",
-      "output": ["dl1","dl2"]
-    },
-    {
-      "workername" : "websocket",
-      "port":	25222,
-      "jobname": "websocket",
-      "jobdata":{
-        "port":8765
-      },
-      "debuglevel":0
-    }
-    ]
-  }
-}
-```
-
-The config file is divided in two main parts
-
-First, you may set the units hosting a *supervisor*
-Here, we only use the local unit but of course more can be added
-
-```
-  "units": [
-    {
-      "name":"mypc",
-      "address":"127.0.0.1"
-    }
-   ],
-```
-
-Then, for each unit, you may define the worker that will be running on it
-
-Each worker is assigned a single job,
-The jobs are defined in ``` src/supervisor/jobs ```
-
-#### Job list
-- unifyvideo: A websocket interface which allows multistreamer job to be configured remotely: for local files, remote stream or unify infrastructure processing.
-- multistreamer:  reads from several video sources at the same time and outputs an image cycling through each source
-- boxer/darknet/boxerjob: given an input image, returns a list of animals in the image
-- websocket: broadcasts processing results to web consumers through websocket
-- djangotransfer:  transfers a input image data to the django server given in input
-- identityjob: outputs its input
-
-##### Debug Jobs
-
-- printjob: prints a string representation of in put to the console
-- showjob: shows a given inout image using matplotlib
-- failsafejob: will raise an exception in its loop
-
-A worker config chunk is as follows:
+# Jobs
+A Job is an instance of worker which must be configured as follows:
 ```
    {
         "workername" : The name of the worker,
@@ -265,8 +138,17 @@ A worker can either **distribute** or **duplicate** its output
 If **distribute** is used the output will go to the first available worker
 if **duplicate** is used the output will go to all of the listed output workers
 
+#### Job list
+- unifyvideo: A websocket interface which allows multistreamer job to be configured remotely: for local files, remote streams or unify infrastructure processing.
+- multistreamer:  reads from several video sources at the same time and extract the frames as outputs.
+- boxer/darknet/boxerjob: given an input frame, returns a list of boxings aroung identified objects (animals, objects, persons, etc)
+- websocket: broadcasts processing results to web consumers through websockets
+- debug: outputs its input
+- identityjob: outputs its input
+
 ### Unifyvideo Job
-The unify job can requested indifferently through its initial configuration file or remotely by its websocket. When new stream are added, the Unifyvideo job requests the Multistreamer to process them. with The following example presents the different possibilities from unify-video API, through a direct Web link or from a local file directory.
+This Job  can be requested indifferently through its initial configuration file or remotely by its websocket. When new stream are added, the Unifyvideo job requests the multistreamer to process them. The following example presents the different possibilities through unify-video API, through a direct Web link or from a local file directory.
+The following jobdata configuration can be provided in the worker configuration file by the master node or through its websocket interface.
 ```
 {
   "workername" : "unify",
@@ -275,19 +157,16 @@ The unify job can requested indifferently through its initial configuration file
   "jobdata":{
     "streams":[
       {
-      "unify":"https://example:7443",
-      "apiKey":"gfdsgfsgfdsgfds",
+        "name":"tidzam-video",
+        "path":"/opt/video-vfd/",
+        "recursive":1
+      },
+      {
+      "unify":"https://tidmarsh.link:7443",
+      "apiKey":"tOPvRsuHCAU74ymg",
+      "locked":true,
       "starttime":null,
       "endtime":null
-    },
-    {
-        "name": "camera1",
-        "url":"rtsp://tidmarsh.link:7447/5a9ee6046bb61c79a4fba8cc_2"
-    },
-      {
-        "name":"tidzam-video",
-        "path":"/opt/video/",
-        "recursive":1
       }
     ],
     "port-ws":4652
@@ -298,8 +177,15 @@ The unify job can requested indifferently through its initial configuration file
 ```
 
 ### Multistreamer Job
+This Job  loads the requested video streams and extracts the frames which are sent to the output workers. The Job data configuration can be used to setup the default value of resolution, frame rate processing (which is overriden if realtime flag is set), the number of FFmpeg streamers and supported video extensions. If there is no video streams specified, this job will wait to receive orders from the Unify-video job (if it exists).
 ```
- {
+{
+
+  "workername" : "streamer",
+  "port":	25223,
+  "jobname": "multistreamer",
+  "debuglevel": 1,
+  "jobdata": {
   "options": {
     "default_img_rate":60,
     "defaut_resolution":"800x600",
@@ -307,14 +193,12 @@ The unify job can requested indifferently through its initial configuration file
     "video_extensions": ".mp4;.avi",
     "realtime": 1
   },
-
   "stream": [
- 	{
-	    "name": "camera1",
-	    "url":"http://fakepath.truc/pathtocamera1"
-	}
+     {
+        "name": "camera1",
+        "url":"http://fakepath.truc/pathtocamera1"
+    }
   ],
-
   "folders": [
     {
       "name":"tidzam-video",
@@ -322,48 +206,45 @@ The unify job can requested indifferently through its initial configuration file
       "recursive":1
     }
   ]
+},
+  "outputmethod":"distribute",
+  "output": ["dl1","dl2","dl3","dl4"]
 }
 
 ```
 
-This is the multistreamer job configuration. The file path is given as jobdata to the multistreamer
-The frst part are the default options:
-
-```
-  "options": {
-    "default_img_rate":default rate,
-    "defaut_resolution":default resolution set it to 'auto' to use the resolution from the input
-    "max_streamers":max number of streamers working at the same time
-    "video_extensions":Extensions to recognize videos when exploring folders
-    "realtime": Skip frames to keep real time video ?
-  },
-```
-
-Then you can set the streamer path, the streamers will be opened first at startup
-
+### Boxer Job
+This Job receives video frames in input and sends them to darknet yolo classifier in order to transmits the detection boxes to the output workers. It doesn t have any particular configuration for now.
 ```
 {
-	"name": name of this stream,
-	"url":"http://fakepath.truc/pathtocamera1",
-	"resolution"; "auto" to keep the original resolution
-	"realtime": 1 to have a realtime stream
+  "workername" : "dl1",
+  "port":	25227,
+  "jobname": "boxer.darknet.boxerjob",
+  "jobdata":"none",
+  "debuglevel": 0,
+  "output": ["websocket"]
 }
 ```
-You can specifically define the resolution for each stream
 
-Finally, you can give some folders you would like to analyse,
-Use the recursive tag to explore sub-folders and set realtime to 0 to miss 0 frames
-
+### Websocket Job
+This job receives the detection boxes which are transmitted to the client through a websocket started on the port specified in jobdata.
 ```
- {
-      "name":"tidzam-video",
-      "path":"/mnt/fakepath",
-      "realtime":0  to get each frame
-      "recursive": 1 to explore sub folders
- }
+{
+  "workername" : "websocket",
+  "port":	25222,
+  "jobname": "websocket",
+  "jobdata":{
+    "port":8765
+  },
+  "debuglevel":0
+}
 ```
 
+### Debug Job
 
+- printjob: prints a string representation of in put to the console
+- showjob: shows a given inout image using matplotlib
+- failsafejob: will raise an exception in its loop
 
 ## TODO
 - Fix logging level changing
