@@ -1,10 +1,13 @@
 <img src="imgs/logo.png" width="30%">
+
 # Introduction
-<a href="https://www.youtube.com/watch?v=lvAROVP-RQ8"><img src="https://img.youtube.com/vi/lvAROVP-RQ8/0.jpg" width="30%" style="float:right;"></a>
+
+<a href="https://www.youtube.com/watch?v=lvAROVP-RQ8"><img src="https://img.youtube.com/vi/lvAROVP-RQ8/0.jpg" width="35%" style="float:left;margin-right:10px;"></a>
 <div>
 Tidzam-video is a system component for the wildlife tracking during an ecological documentation of a wetland restoration program of a large scale industrial cramberry farm Tidmarsh located in the south of Massachusetts. This system analysis in real-time the different cameras deployed on site in order to detect, identify and geolocalize wildlife activity all over the year.
 More informations about Tidmarch can be found at [http://www.livingobservatory.org/](http://www.livingobservatory.org/)  and [http://tidmarsh.media.mit.edu/](http://tidmarsh.media.mit.edu/)
 </div>
+
 
 <div style="float:none">
 Based on the recent improvement in Computer Vision and more precisely based on Yolo2, this piece of software allows such classifier to be integrated in a cluster based infrastructure as illustrated in following figure. Several types of workers can be configured and connected together over the network in order to process in parallel multiple of input video streams:
@@ -245,12 +248,3 @@ This job receives the detection boxes which are transmitted to the client throug
 - printjob: prints a string representation of in put to the console
 - showjob: shows a given inout image using matplotlib
 - failsafejob: will raise an exception in its loop
-
-## TODO
-- Fix logging level changing
-- Use multiple GPU in darknet
-- Write log to files
-- Worker can be started with command line, without supervisor
-- Multistreamer must support *on the fly* video changes
-- Ensure frame order in djangotranfer
-- Connect to Chain API
