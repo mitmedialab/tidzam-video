@@ -56,11 +56,15 @@ class Unifyvideo(Job):
     def loop(self, data):
         try:
             r = requests.pop()
+            
             return r
         except IndexError:
             pass
 
         return
+
+    def requireData(self):
+        return False
 
     def destroy(self):
         return
