@@ -4,7 +4,7 @@
 
 <div>
 Tidzam-video is a system component for the wildlife tracking during an ecological documentation of a wetland restoration program of a large scale industrial cramberry farm Tidmarsh located in the south of Massachusetts. This system analysis in real-time the different cameras deployed on site in order to detect, identify and geolocalize wildlife activity all over the year.
-More informations about Tidmarch can be found at [http://www.livingobservatory.org/](http://www.livingobservatory.org/)  and [http://tidmarsh.media.mit.edu/](http://tidmarsh.media.mit.edu/)
+More informations about Tidmarch can be found at <a href="http://www.livingobservatory.org/">http://www.livingobservatory.org/</a>  and <a href="http://tidmarsh.media.mit.edu">http://tidmarsh.media.mit.edu/</a>
 </div>
 <center>
 <a href="https://www.youtube.com/watch?v=lvAROVP-RQ8"><img src="https://img.youtube.com/vi/lvAROVP-RQ8/0.jpg" width="35%"></a>
