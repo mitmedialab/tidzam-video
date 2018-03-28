@@ -1,0 +1,84 @@
+
+#!/bin/bash
+set +e
+
+PATH_TIDZAM=.
+LOGS=$PATH_TIDZAM/logs
+PID_FILE=/tmp/tidzam-video
+ACTION=$1
+
+
+install_darknet(){
+  echo "TidZam-video Installation"
+  echo -n "==================="
+
+  echo -n "Darknet installation"
+  echo    "===================="
+  export PATH=/usr/local/cuda-9.0/bin${PATH:+:${PATH}}
+  export LD_LIBRARY_PATH=/usr/local/cuda-9.0/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+  apt-get install libopencv-dev python-opencv
+  cd src/supervisor/jobs/boxer
+  chmod +x install_darknet.sh
+  rm -fr darknet
+  ./install_darknet.sh
+  cd ../../..
+  echo "Installation terminated."
+}
+
+install(){
+  echo "System Package Installation"
+  echo "==========================="
+  apt-get install ffprobe ffmpeg
+
+  echo "Python Package Installation"
+  echo "==========================="
+  pip3 install  aiohttp aiohttp-cors asyncio bson h5py httplib2 matplotlib numpy Pillow protobuf psutil python-engineio python-socketio requests requests-oauthlib scikit-learn socketIO-client urllib3 websocket-client  websockets
+  echo "Installation terminated."
+}
+
+start_supervisor(){
+  cd src/supervisor/
+  nohup python3 supervisor.py \
+  > ../../$LOGS/supervisor.log 2>&1 &
+  echo $! > "$PID_FILE"
+  cd ../..
+  echo "Supervisor [ok]"
+}
+
+run_master(){
+  python3 src/supervisor/master.py $1
+  echo "Configuration [ok]"
+}
+
+stop(){
+    echo -n "Stop worker "
+    pkill -9 -P `cat $PID_FILE`
+    echo  "[OK]"
+    echo -n "Stop supervisor "
+    kill `cat $PID_FILE`
+    echo "[OK]"
+    rm $PID_FILE
+}
+
+if [ "$ACTION" == "init" ]; then
+  if [ -f "$PID_FILE" ]; then
+    echo "TidZam-video is already running"
+  else
+    start_supervisor
+  fi
+
+elif [ "$ACTION" == "start" ]; then
+  run_master $2
+
+elif [ "$ACTION" == "stop" ]; then
+  stop
+
+elif [ "$ACTION" == "install_darknet" ]; then
+  install_darknet
+
+elif [ "$ACTION" == "install" ]; then
+  install
+
+else
+  echo "tidzam-video (init | start | stop | install | install_darknet)"
+fi
