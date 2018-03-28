@@ -176,9 +176,7 @@ function process_boxing_packet(packet){
         return
       }
       fullscreen = name
-      $("#p_"+name).addClass("video_fullscreen")
-
-      console.log("=========>click" +name)
+      $("#p_"+name).addClass("video_fullscreen");
       });
 
     function draw(video_name, count) {
@@ -191,11 +189,13 @@ function process_boxing_packet(packet){
       // Get the frame time of the next boxing in the queue
       packet_currentTime    = Math.floor(buffer[video_obj.id][0].meta.frame_count / framerate)
 
+      fps =  Math.floor( 1 / ( (buffer[video_obj.id][1].meta.frame_count - buffer[video_obj.id][0].meta.frame_count) / framerate) )
+
       // Print Meta data
       if (buffer[video_obj.id][0].meta.meta.startTime)
         $('#meta_'+video_name).html( buffer[video_obj.id][0].meta.from + ' <br> ' +
             (new Date(buffer[video_obj.id][0].meta.meta.startTime + (video_obj.currentTime)*1000 ) ).toLocaleString() + ' - ' +
-            buffer[video_obj.id][0].meta.meta.frame_rate_processing + " FPS " +buffer[video_obj.id][0].meta.meta.width+'x'+buffer[video_obj.id][0].meta.meta.height )
+            fps + " FPS " +buffer[video_obj.id][0].meta.meta.width+'x'+buffer[video_obj.id][0].meta.meta.height )
 
       // If the next boxing in queue is corresponding to current video frame, we draw it
       if (Math.abs(video_obj.currentTime - packet_currentTime) < 0.1 ){
