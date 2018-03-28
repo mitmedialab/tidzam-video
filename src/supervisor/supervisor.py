@@ -217,7 +217,11 @@ if __name__ == '__main__':
         except KeyboardInterrupt:
             sup.stop()
 
+        except EOFError:
+            time.sleep(1) 
+
         except:
             if(not sup.running):
                 break
-            debug("Wrong configuration file: " + str(l),0)
+            traceback.print_exc()
+            debug("Wrong configuration file: ",0)

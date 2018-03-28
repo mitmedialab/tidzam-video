@@ -6,7 +6,7 @@ Created on 30 nov. 2017
 import json
 import traceback
 
-from .custom_logging import debug
+from .custom_logging import debug,error,warning
 
 def checkMasterConfigSanity(cfg):
     return checkConfigSanity(cfg, ["units"], ["workers","action","refreshinterval", "supervisorport"])
@@ -29,13 +29,13 @@ def checkConfigSanity(cfg, MANDATORY, OPTIONAL):
                     raise ValueError("Missing mandatory parameter: "+str(k))
 
         except ValueError as ve:
-            error("Error in configuration: "+str(ve), 0)
+            warning("Error in configuration: "+str(ve), 1)
             return False
         except json.JSONDecodeError:
-            error("Error in configuration: The provided configuration is not valid", 0)
+            warning("Error in configuration: The provided configuration is not valid", 1)
             return False
         except:
-            error("Error when checking config sanity", 0)
+            warning("Error when checking config sanity", 1)
             traceback.print_exc()
             return False
 

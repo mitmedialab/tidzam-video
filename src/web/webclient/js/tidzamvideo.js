@@ -341,7 +341,6 @@ span_close.onclick = closeFullScreen
 
 function closeFullScreen() {
   if(fullScreen == null) return
-
   modal.style.display = "none";
   modalImg.id = ""
   document.getElementById("video_"+fullScreen).volume = 0

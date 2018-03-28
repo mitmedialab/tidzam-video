@@ -1,30 +1,103 @@
-# Tid'Zam Video
-
-![](imgs/logo.png)
-
-## Introduction
-
-The goal of the project is to replace the way the wildlife on the Tidmarsh site is currently recognized.
+<img src="imgs/logo.png" width="30%">
+# Introduction
+<a href="https://www.youtube.com/watch?v=lvAROVP-RQ8"><img src="https://img.youtube.com/vi/lvAROVP-RQ8/0.jpg" width="30%" style="float:right;"></a>
+<div>
+Tidzam-video is a system component for the wildlife tracking during an ecological documentation of a wetland restoration program of a large scale industrial cramberry farm Tidmarsh located in the south of Massachusetts. This system analysis in real-time the different cameras deployed on site in order to detect, identify and geolocalize wildlife activity all over the year.
 More informations about Tidmarch can be found at [http://www.livingobservatory.org/](http://www.livingobservatory.org/)  and [http://tidmarsh.media.mit.edu/](http://tidmarsh.media.mit.edu/)
+</div>
 
-This project's aim is to create an environement to process real time video and video from folders (archives videos) to be processed
-The processing part consists in identifying accuraltely the spicies in the given frame
-The resultst are then sent to a web server for streaming or to the chain API
+<div style="float:none">
+Based on the recent improvement in Computer Vision and more precisely based on Yolo2, this piece of software allows such classifier to be integrated in a cluster based infrastructure as illustrated in following figure. Several types of workers can be configured and connected together over the network in order to process in parallel multiple of input video streams:
+<ul>
+<li> <strong>Websocket</strong> is a websocket interface which broadcasts to the clients the detection and boxing informations regarding the frames of processed streams.</li>
+<li> <strong>Classifier</strong> receives incoming frame and analyzes them in order to provide boxing around the identified objects (based on Yolo2)</li>
+<li> <strong>Streamer</strong> receives incoming stream url requests in order to load them and extract the frames which are transmitted to the classifiers.</li>
+<li> <strong>Unify</strong> is a websocket interface in order to add new video streams which should be processed by Tidzam. This job can be also configured for communicating with a unify-video server.</li>
+</ul>
+</div>
 
-## Demo using YOLO v2
-Click on the image below
+<center>
+<img src="imgs/tidzam-video.png" width="90%">
+</center>
 
-[![](https://img.youtube.com/vi/lvAROVP-RQ8/0.jpg)](https://www.youtube.com/watch?v=lvAROVP-RQ8)
+# Usage
+Each machines which are part of the Tidzam-video cluster, the supervisor should be started by the following command. It will received its works and jobs configuration from the master node.
+```
+tidzam-video init
+```
+The master node sents the workers, jobs and networks configurations to the different supervisors running on the cluster's machines through the following command:
+```
+tidzam-video start cfg/config.json
+```
+Stopping the   supervisor on a server with its workers:
+```
+tidzam-video stop
+```
+
+## Configuration Example
+The first section "units" defines the list of server members of the Tidzam-video cluster. The "workers" section defines the location of the workers, their jobs, their initial configurations and their outputs.
+```
+{
+  "units": [
+    {
+      "name":"serv1.network",
+      "address":"x.x.x.x"
+    },
+    {
+      "name":"serv2.network",
+      "address":"x.x.x.x"
+    }
+  ],
+"workers": {
+  "serv1.network": [
+    {
+      "workername" : "dl1",
+      "port":	25224,
+      "jobname": "boxer.darknet.boxerjob",
+      "jobdata":"none",
+      "debuglevel": 0,
+      "output": ["websocket"]
+    },
+    {
+      "workername" : "dl2",
+      "port":	25225,
+      "jobname": "boxer.darknet.boxerjob",
+      "jobdata":"none",
+      "debuglevel": 0,
+      "output": ["websocket"]
+    }],
+    "serv2.network": [
+    {
+      "workername" : "streamer",
+      "port":	25223,
+      "jobname": "multistreamer",
+      "debuglevel": 1,
+      "jobdata":
+      },
+      "outputmethod":"distribute",
+      "output": ["dl1","dl2"]
+    },
+    {
+      "workername" : "websocket",
+      "port":	25222,
+      "jobname": "websocket",
+      "jobdata":{
+        "port":8765
+      },
+      "debuglevel":0
+    }
+    ]
+  }
+}
+```
+# Installation
+
+
 
 ## Dependencies
-
 - Python 3.5+
-- Numpy
-- PIL
-- django for webserver
-- ffmpeg and ffprobe
-- matplotlib for debugging (showing images)
-- CUDA and cudNN are **optional** but will trigger errors in *Darknet Job installation* if not present
+- CUDA and cudNN
+- FFmpeg and FFprobe
 
 
 ### Dependencies Installation
@@ -82,43 +155,62 @@ The default is:
 
   "units": [
     {
-      "name":"mypc",
-      "address":"127.0.0.1"
+      "name":"serv1.network",
+      "address":"x.x.x.x"
+    },
+    {
+      "name":"serv2.network",
+      "address":"x.x.x.x"
     }
-
-
   ],
 
 "workers": {
 
-  "mypc": [
+  "serv1.network": [
+    {
+      "workername" : "dl1",
+      "port":	25224,
+      "jobname": "boxer.darknet.boxerjob",
+      "jobdata":"none",
+      "debuglevel": 0,
+      "output": ["websocket"]
+    },
+    {
+      "workername" : "dl2",
+      "port":	25225,
+      "jobname": "boxer.darknet.boxerjob",
+      "jobdata":"none",
+      "debuglevel": 0,
+      "output": ["websocket"]
+    }],
+    "serv2.network": [
+    {
 
-      {
-        "workername" : "django",
-        "port":	25224,
-        "jobname": "djangotransfer",
-        "jobdata":"none",
-        "debuglevel": 3
+      "workername" : "streamer",
+      "port":	25223,
+      "jobname": "multistreamer",
+      "debuglevel": 1,
+      "jobdata":{
+        "options": {
+          "default_img_rate":10,
+          "defaut_resolution":"800x600",
+          "max_streamers":3,
+          "video_extensions": ".mp4;.avi",
+          "realtime": 1
+        }
       },
-
-      {
-        "workername" : "dl",
-        "port":	25225,
-        "jobname": "boxer.darknet.boxerjob",
-        "jobdata":"none",
-        "debuglevel": 3,
-        "output": ["django"]
+      "outputmethod":"distribute",
+      "output": ["dl1","dl2"]
+    },
+    {
+      "workername" : "websocket",
+      "port":	25222,
+      "jobname": "websocket",
+      "jobdata":{
+        "port":8765
       },
-
-      {
-        "workername" : "streamer",
-        "port":	25223,
-        "jobname": "multistreamer",
-        "debuglevel": 3,
-        "jobdata":"cfg/multi_stream_test.json",
-        "outputmethod":"distribute",
-        "output": ["dl"]
-      }
+      "debuglevel":0
+    }
     ]
   }
 }

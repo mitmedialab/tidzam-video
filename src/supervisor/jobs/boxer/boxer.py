@@ -6,7 +6,7 @@ class Detector:
 	def __init__(self, config, weights, meta):
 		dn.set_gpu(0)
 		f = io.BytesIO()
-		
+
 		with dn.stderr_redirector(f):
 			self.net = dn.load_net(config, weights, 0)
 			self.meta = dn.load_meta(meta)

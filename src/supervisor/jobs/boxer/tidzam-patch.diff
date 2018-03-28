@@ -1,0 +1,105 @@
+--- darknet/src/network.c	2018-03-27 19:33:46.812811894 -0400
++++ network.c	2018-03-27 19:33:36.768671701 -0400
+@@ -189,7 +189,7 @@
+ {
+ #ifdef GPU
+     if(netp->gpu_index >= 0){
+-        forward_network_gpu(netp);   
++        forward_network_gpu(netp);
+         return;
+     }
+ #endif
+@@ -214,7 +214,7 @@
+ {
+ #ifdef GPU
+     if(netp->gpu_index >= 0){
+-        update_network_gpu(netp);   
++        update_network_gpu(netp);
+         return;
+     }
+ #endif
+@@ -264,7 +264,7 @@
+ {
+ #ifdef GPU
+     if(netp->gpu_index >= 0){
+-        backward_network_gpu(netp);   
++        backward_network_gpu(netp);
+         return;
+     }
+ #endif
+@@ -349,7 +349,7 @@
+         if(net->layers[i].type == DECONVOLUTIONAL){
+             layer *l = net->layers + i;
+             cudnnSetTensor4dDescriptor(l->dstTensorDesc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, 1, l->out_c, l->out_h, l->out_w);
+-            cudnnSetTensor4dDescriptor(l->normTensorDesc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, 1, l->out_c, 1, 1); 
++            cudnnSetTensor4dDescriptor(l->normTensorDesc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, 1, l->out_c, 1, 1);
+         }
+ #endif
+     }
+@@ -485,7 +485,7 @@
+         if(l.type == CONVOLUTIONAL){
+             prev = visualize_convolutional_layer(l, buff, prev);
+         }
+-    } 
++    }
+ }
+ 
+ void top_predictions(network *net, int k, int *index)
+@@ -539,6 +539,30 @@
+     return dets;
+ }
+ 
++int *make_detections_array(detection *dets, int num, int nb_classes)
++{
++ int i,j;
++ int max = 0;
++ int* res  = calloc(num, sizeof(int));
++ for(i = 0; i < num; ++i){
++   max    = 0;
++   res[i] = -1;
++   for (j = 0; j < nb_classes; j++){
++     if (dets[i].prob[j] > max ){
++       max = dets[i].prob[j];
++       res[i] = j;
++       }
++     }
++   }
++  return res;
++}
++
++void free_detections_array(int *array)
++{
++  free(array);
++}
++
++
+ void fill_network_boxes(network *net, int w, int h, float thresh, float hier, int *map, int relative, detection *dets)
+ {
+     int j;
+@@ -610,7 +634,7 @@
+         }
+     }
+     free(X);
+-    return pred;   
++    return pred;
+ }
+ 
+ matrix network_predict_data(network *net, data test)
+@@ -633,7 +657,7 @@
+         }
+     }
+     free(X);
+-    return pred;   
++    return pred;
+ }
+ 
+ void print_network(network *net)
+@@ -675,7 +699,7 @@
+     printf("%5d %5d\n%5d %5d\n", a, b, c, d);
+     float num = pow((abs(b - c) - 1.), 2.);
+     float den = b + c;
+-    printf("%f\n", num/den); 
++    printf("%f\n", num/den);
+ }
+ 
+ float network_accuracy(network *net, data d)

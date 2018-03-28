@@ -36,6 +36,14 @@ body {
   text-align:center;
 }
 
+#status {
+  background-color:red;
+  border-radius: 50%;
+  behavior: url(PIE.htc);
+  width:30px;
+  height:30px;
+  margin:5px;
+}
 
 .debug_div {
 }
@@ -83,6 +91,12 @@ video{
   width:400px;
   height:240px;
   z-index: 30;
+}
+
+.radio{
+height: 25px;
+width: 25px;
+background-color: #eee;
 }
 </style>
 
@@ -200,12 +214,12 @@ function process_boxing_packet(packet){
         ;// TODO console.log("Drawing box no ready")
       }
       // Try to draw the boxing each ms
-      if (video_obj.ended || count > 10 * framerate){
+      if (video_obj.ended || count > 20 * framerate){
         console.log("delete " + video_obj.ended + " " + count)
         $("#p_"+video_name).remove()
       }
       // Call the draw function two time between processing framerate
-      else setTimeout(function(){draw(video_name, count)}, (1 / (2*framerate) ) * 1000);
+      else setTimeout(function(){draw(video_name, count)}, (1 / (4*framerate) ) * 1000);
     }
     draw( video_name , 0 );
     return
@@ -224,18 +238,24 @@ function process_boxing_packet(packet){
   //console.log("Receive " + packet_currentTime + " at " + playback_currentTime)
   //console.log(buffer[$("#video_"+video_name).get(0) .id].length)
 
+  $("#video_"+video_name).on('canplay',function(){
+    console.log("can play " + this.id)
+    $("#video_"+video_name).get(0).loading = 0
+    $("#video_"+video_name).get(0).play()
+  });
 
-  if (packet_currentTime > bufferSize + playback_currentTime){
-      video.currentTime = Math.floor(buffer[video.id][0].meta.frame_count / framerate)
+  if (!$("#video_"+video_name).get(0).loading && packet_currentTime > bufferSize + playback_currentTime){
+      video.currentTime = Math.floor(buffer[video.id][0].meta.frame_count / framerate);
       video.play()
+      $("#video_"+video_name).get(0).loading = 1
       console.log("Load movie " + video_name + " at " + packet_currentTime)
   }
   else if (!video.paused && Math.floor(packet.meta.frame_count / framerate)  <=  playback_currentTime){
     video.pause()
     console.log("Pause movie " + video_name + " ("+Math.floor(packet.meta.frame_count / framerate)  +"<="+  playback_currentTime+") ")
   }
-  else if (video.paused){
-    console.log("Play movie " + video_name + " ("+Math.floor(packet.meta.frame_count / framerate)  +"<="+  playback_currentTime+") ")
+  else if (video.paused && Math.floor(packet.meta.frame_count / framerate) >  playback_currentTime  + bufferSize/2){
+    console.log("Play movie " + video_name + " ("+Math.floor(packet.meta.frame_count / framerate)  +">"+  playback_currentTime  + bufferSize/2+") ")
     video.play()
   }
 }
@@ -302,50 +322,92 @@ socket.onmessage = function(e){
     **************************************************************/
     //https://tidmarsh.link:7443/api/2.0/recording/5aae10fb6bb61c79a4ff1caf/download?apiKey=tOPvRsuHCAU74ymg
     var socket_admin = new WebSocket("ws://" + window.location.host + ":4652/unify/");
-    socket_admin.onmessage = function(e){
-      console.log(e)
-      }
+    //socket_admin.onmessage = function(event) { console.log("Message:", event.data);};
+    socket_admin.onopen = function(event) {
+        console.log("Connected (ws://" + window.location.host + ":4652/unify/)");
+        $("#status").css("background-color","green");
+
+        // Lorsque la connexion se termine.
+        this.onclose = function(event) {
+          $("#status").css("background-color","red");
+            console.log("Disconnected (ws://" + window.location.host + ":4652/unify/)");
+        };
+
+        // Lorsque le serveur envoi un message.
+        this.onmessage = function(event) {
+            console.log("Message:", event.data);
+        };
+    };
 
     $( document ).ready(function() {
       dialog = $( "#div_add_stream" ).dialog({
         autoOpen: false,
-        height: 200,
+        height: 330,
         width: 350,
         modal: true,
         buttons: {
           "Add stream": function(){
-            socket_admin.send(JSON.stringify({
-              name:$("#name_url").val(),
-              url:$("#stream_url").val()
-            }))
-
-            console.log("Stream request :" + $("#name_url").val() + " - " + $("#stream_url").val() )
+            if( $('#url:checked').val() ){
+              obj = {
+                name:$("#name_url").val(),
+                url:$("#stream_url").val(),
+              }
+              console.log("Stream request :" + $("#name_url").val() + " - " + $("#stream_url").val() )
+            }
+            else {
+              obj = {
+                name:$("#name_url").val(),
+                unify:$("#stream_url").val(),
+                apiKey:$("#apiKey").val(),
+                startTime:$("#starttime").val()?Date.parse($("#starttime").val()):"",
+                endTime:$("#endtime").val()?Date.parse($("#endtime").val()):"",
+                locked:$("#locked:checked").val()?true:false
+              }
+              console.log("Unify request :" + $("#name_url").val() + " - " + $("#stream_url").val() )
+            }
+            socket_admin.send(JSON.stringify(obj))
           },
           Cancel: function() {
             dialog.dialog( "close" );
           }
         },
         close: function() {
-          form[ 0 ].reset();
-          allFields.removeClass( "ui-state-error" );
+          dialog.dialog( "close" );
         }
       });
 
       $( "#add_stream" ).button().on( "click", function() {
         dialog.dialog( "open" );
       });
+
+      $("#url").on( "click", function()   {$("#div_add_stream_div_unify").hide();});
+      $("#unify").on( "click", function() {$("#div_add_stream_div_unify").show();});
     });
 </script>
 </head>
 <body>
-<div id="div_add_stream" title="Add new web stream">
-  Name: <input type="text" id="name_url"><br>
-  URL: <input type="text" id="stream_url"><br>
+<div id="div_add_stream" title="Add streams">
+  <form name="form_add_stream">
+  <div style="text-align:center">
+    <input type="radio" id="url" name="type" class="radio radio_url">URL
+    <input type="radio" id="unify" name="type" class="radio radio_unify"> Unify Server
+  </div>
+  <div id="div_add_stream_div_url">
+    Name: <input type="text" id="name_url"><br>
+    URL:  <input type="text" id="stream_url">
+  </div>
+  <div id="div_add_stream_div_unify" style="display:none;">
+    apiKey: <input type="text" id="apiKey"><br>
+    From:   <input type="date" id="starttime"><br>
+    To:     <input type="date" id="endtime"><br>
+    Locked: <input type="checkbox" id="locked">
+  </div>
+  </form>
 </div>
+
+
+<div style="float:left" id="status"></div>
 <input id="add_stream" type="button" value="Create">
-
-
-
 <div id="video_list"></div>
 <div id="img_list"></div>
 

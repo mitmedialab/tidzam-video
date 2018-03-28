@@ -334,8 +334,7 @@ class Worker(object):
 
 
         except:
-            if(_DEBUG_LEVEL == 3):
-                traceback.print_exc()
+            traceback.print_exc()
             warning("Output network callback error", 0)
             self._closeSock(sock)
             return
@@ -440,11 +439,11 @@ class Worker(object):
                     debug("Input queue overflow", 0)
 
                 data = self.inputQueue.get()
-            else:
-                try:
-                    data = self.inputQueue.get(block=False)
-                except:
-                    pass
+            try:
+                data = self.inputQueue.get(block=False)
+            except:
+                debug("no incoming data for the process.")
+                pass
 
             out = self.job.loop(data)
 
@@ -472,15 +471,15 @@ class Worker(object):
 
         self.job.destroy()
         #self.jobRunning.value = False
-        debug("Worker loop is terminated")
+        debug("Reached end of Launch target")
         self.stop(0)
 
     def _launchTarget(self):
         try:
             self._doJob()
         except:
-            error("Error from job thread", 0)
             traceback.print_exc()
+            error("Error from job thread")
             self.stop(1)
 
 
@@ -624,6 +623,6 @@ if __name__ == "__main__":
         except:
             worker = None
             run = False
-            error("Uncaught exception, abort", 0)
             traceback.print_exc()
+            error("Uncaught exception, abort", 0)
             suicide() #cannot stay in this state

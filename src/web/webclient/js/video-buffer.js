@@ -7,8 +7,9 @@ function getPacketTime(packet) {
 }
 
 function getVideoURL(packet) {
-  return "https://tidzam.media.mit.edu/"+packet.meta.path
-  //return "file:///home/win32gg/Documents/ESILV/2017-2018/TidmarshCWD/TidmarshCWD/src/supervisor/data/"+packet.meta.from.replace("tidzam-video", "")
+  if (packet.meta.path.indexOf("http") != -1 || packet.meta.path.indexOf("rtsp") != -1)
+    return packet.meta.path
+  return "https://tidzam.media.mit.edu"+packet.meta.path
 }
 
 /**
@@ -38,7 +39,6 @@ function getOrMakeVideo(packet) {
   let vid = document.getElementById('video_'+name)
   if(vid != null)
     return vid
-
   //append video to the graveyard
   vid = document.createElement("video")
   vid.id  = "video_"+name
@@ -173,6 +173,7 @@ function renderVideos() {
   }
   catch(err){
     // TODO
+    console.log("error renderVideos")
   }
 
 

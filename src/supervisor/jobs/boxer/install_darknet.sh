@@ -9,6 +9,8 @@ echo 'Installing darknet...'
 git clone https://github.com/pjreddie/darknet
 cp MakefileDarknet darknet/Makefile
 
+patch darknet/src/network.c < tidzam-patch.diff
+
 cd darknet
 echo 'Compilling darknet...'
 make
@@ -27,5 +29,3 @@ echo 'Installing darket and boxer scripts...'
 cp darknet.py ./darknet
 cp boxerjob.py ./darknet
 cp boxer.py ./darknet
-
-

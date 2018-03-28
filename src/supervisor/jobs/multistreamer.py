@@ -178,7 +178,7 @@ class Multistreamer(Job):
 
         except:
             warning("Cannot start streamer "+name+" ("+str(location)+")", 0)
-            if(_DEBUG_LEVEL >= 3):
+            if(_DEBUG_LEVEL >= 0):
                 traceback.print_exc()
             return False
 

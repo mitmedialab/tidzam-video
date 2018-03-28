@@ -1,16 +1,11 @@
 from ctypes import *
-from time import time
-
-import math
+from utils.custom_logging import debug,error,warning,ok, _DEBUG_LEVEL
+import math, os
 import random
-import numpy as np
-import os,sys
-from utils.custom_logging import debug, _DEBUG_LEVEL
 
 from contextlib import contextmanager
-import io
-import tempfile
-import ctypes
+import io, sys
+import tempfile, ctypes
 
 def sample(probs):
     s = sum(probs)
@@ -23,13 +18,24 @@ def sample(probs):
     return len(probs)-1
 
 def c_array(ctype, values):
-    return (ctype * len(values))(*values)
+    arr = (ctype*len(values))()
+    arr[:] = values
+    return arr
 
 class BOX(Structure):
     _fields_ = [("x", c_float),
                 ("y", c_float),
                 ("w", c_float),
                 ("h", c_float)]
+
+class DETECTION(Structure):
+    _fields_ = [("bbox", BOX),
+                ("classes", c_int),
+                ("prob", POINTER(c_float)),
+                ("mask", POINTER(c_float)),
+                ("objectness", c_float),
+                ("sort_class", c_int)]
+
 
 class IMAGE(Structure):
     _fields_ = [("w", c_int),
@@ -41,8 +47,14 @@ class METADATA(Structure):
     _fields_ = [("classes", c_int),
                 ("names", POINTER(c_char_p))]
 
-lib_path = os.path.dirname(__file__)+"/libdarknet.so"
-lib = CDLL(lib_path, RTLD_GLOBAL)
+
+
+#lib = CDLL("/home/pjreddie/documents/darknet/libdarknet.so", RTLD_GLOBAL)
+try:
+    lib = CDLL(os.path.dirname(__file__)+"/libdarknet.so", RTLD_GLOBAL)
+except:
+    error("Unable to load darknet: " + os.path.dirname(__file__)+"/libdarknet.so")
+
 lib.network_width.argtypes = [c_void_p]
 lib.network_width.restype = c_int
 lib.network_height.argtypes = [c_void_p]
@@ -59,23 +71,22 @@ make_image = lib.make_image
 make_image.argtypes = [c_int, c_int, c_int]
 make_image.restype = IMAGE
 
-make_boxes = lib.make_boxes
-make_boxes.argtypes = [c_void_p]
-make_boxes.restype = POINTER(BOX)
+get_network_boxes = lib.get_network_boxes
+get_network_boxes.argtypes = [c_void_p, c_int, c_int, c_float, c_float, POINTER(c_int), c_int, POINTER(c_int)]
+get_network_boxes.restype = POINTER(DETECTION)
+
+make_network_boxes = lib.make_network_boxes
+make_network_boxes.argtypes = [c_void_p]
+make_network_boxes.restype = POINTER(DETECTION)
+
+free_detections = lib.free_detections
+free_detections.argtypes = [POINTER(DETECTION), c_int]
 
 free_ptrs = lib.free_ptrs
 free_ptrs.argtypes = [POINTER(c_void_p), c_int]
 
-num_boxes = lib.num_boxes
-num_boxes.argtypes = [c_void_p]
-num_boxes.restype = c_int
-
-make_probs = lib.make_probs
-make_probs.argtypes = [c_void_p]
-make_probs.restype = POINTER(POINTER(c_float))
-
-detect = lib.network_predict
-detect.argtypes = [c_void_p, IMAGE, c_float, c_float, c_float, POINTER(BOX), POINTER(POINTER(c_float))]
+network_predict = lib.network_predict
+network_predict.argtypes = [c_void_p, POINTER(c_float)]
 
 reset_rnn = lib.reset_rnn
 reset_rnn.argtypes = [c_void_p]
@@ -83,6 +94,12 @@ reset_rnn.argtypes = [c_void_p]
 load_net = lib.load_network
 load_net.argtypes = [c_char_p, c_char_p, c_int]
 load_net.restype = c_void_p
+
+do_nms_obj = lib.do_nms_obj
+do_nms_obj.argtypes = [POINTER(DETECTION), c_int, c_int, c_float]
+
+do_nms_sort = lib.do_nms_sort
+do_nms_sort.argtypes = [POINTER(DETECTION), c_int, c_int, c_float]
 
 free_image = lib.free_image
 free_image.argtypes = [IMAGE]
@@ -106,8 +123,13 @@ predict_image = lib.network_predict_image
 predict_image.argtypes = [c_void_p, IMAGE]
 predict_image.restype = POINTER(c_float)
 
-network_detect = lib.network_detect
-network_detect.argtypes = [c_void_p, IMAGE, c_float, c_float, c_float, POINTER(BOX), POINTER(POINTER(c_float))]
+make_detections_array = lib.make_detections_array
+make_detections_array.argtypes = [c_void_p, c_int, c_int]
+make_detections_array.restype = POINTER(c_int)
+
+free_detections_array = lib.free_detections_array
+free_detections_array.argtypes = [c_void_p]
+free_detections_array.restype = c_void_p
 
 c_stderr = ctypes.c_void_p.in_dll(lib, 'stderr')
 
@@ -158,52 +180,22 @@ def classify(net, meta, im):
     res = sorted(res, key=lambda x: -x[1])
     return res
 
-class Stopwatch:
+def detect(net, meta, image, thresh=.2, hier_thresh=.2, nms=.45, nb_classes=9418):
+    num = c_int(0)
+    pnum = pointer(num)
+    predict_image(net, image)
+    dets = get_network_boxes(net, image.w, image.h, thresh, hier_thresh, None, 0, pnum)
+    num = pnum[0]
+    if (nms): do_nms_obj(dets, num, meta.classes, nms);
 
-    def __init__(self):
-        self.start = time()
-
-    def print_now(self):
-        print("ELAPSED: "+str(self.get_time()))
-
-
-    def get_time(self):
-        t = str(time()-self.start)
-        self.start = time()
-
-        return t
-
-def detect(net, meta, image, thresh=.2, hier_thresh=.4, nms=.45, nb_classes=9418):
-    sw = Stopwatch()
-    debug("Darknet running on image...", 3)
-
-    debug("DARKNET TIMINGS", 3)
-
-    boxes = make_boxes(net)
-    debug("MAKE_BOXES "+str(sw.get_time()), 3)
-
-    probs = make_probs(net)
-    debug("MAKE_PROBAS "+str(sw.get_time()), 3)
-
-    num =   num_boxes(net)
-    debug("NUM_BOXES "+str(sw.get_time()), 3)
-
-    network_detect(net, image, thresh, hier_thresh, nms, boxes, probs)
-    debug("DETECTION "+str(sw.get_time()), 3)
-
+    res_pro =  make_detections_array(dets, num, nb_classes)
     res = []
-
     for j in range(num):
-        arr = (ctypes.c_float * nb_classes).from_address(addressof(probs[j].contents))
-        arr = np.ndarray(buffer=arr, dtype=np.float32, shape=(nb_classes))
-        i = np.argmax(arr)
-        if (arr[int(i)] > 0):
-        #for i in np.where(arr > 0)[0]:
-            res.append((meta.names[i], float(arr[int(i)]), (boxes[j].x, boxes[j].y, boxes[j].w, boxes[j].h)))
-    debug("LABELISATION 1 "+str(sw.get_time()), 3)
+        classe = int(res_pro[j])
+        if (classe > -1):
+            res.append((meta.names[classe], float(dets[j].prob[classe] ), (dets[j].bbox.x, dets[j].bbox.y, dets[j].bbox.w, dets[j].bbox.h)))
 
     res = sorted(res, key=lambda x: -x[1])
-    free_ptrs(cast(probs, POINTER(c_void_p)), num)
-
-    #print((res))
+    free_detections(dets, num)
+    free_detections_array(res_pro)
     return res
