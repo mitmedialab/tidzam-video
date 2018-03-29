@@ -265,7 +265,7 @@ GENERAL INTERFACE
 * Connect to ws://XXXX/
 * Read the boxing packet and draw them on the video flow
 **************************************************************/
-var socket = new WebSocket("ws://" + window.location.host + ":8765");
+var socket = new WebSocket("ws://" + window.location.host + "/video-ws/");
 socket.binaryType = 'blob' // 'blob' //or ArrayBuffer
 socket.onmessage = function(e){
   //alert(e.data);
@@ -274,7 +274,6 @@ socket.onmessage = function(e){
     packet = bson_decode(this.result)
     //debug_loadImage(packet)
     process_boxing_packet(packet);
-
     }
   reader.readAsArrayBuffer(e.data);
   }
@@ -321,16 +320,16 @@ socket.onmessage = function(e){
     * Read the boxed frame from the server and show them
     **************************************************************/
     //https://tidmarsh.link:7443/api/2.0/recording/5aae10fb6bb61c79a4ff1caf/download?apiKey=tOPvRsuHCAU74ymg
-    var socket_admin = new WebSocket("ws://" + window.location.host + ":4652/unify/");
+    var socket_admin = new WebSocket("ws://" + window.location.host + "/unify/");
     //socket_admin.onmessage = function(event) { console.log("Message:", event.data);};
     socket_admin.onopen = function(event) {
-        console.log("Connected (ws://" + window.location.host + ":4652/unify/)");
+        console.log("Connected (ws://" + window.location.host + "/video-ws/unify/)");
         $("#status").css("background-color","green");
 
         // Lorsque la connexion se termine.
         this.onclose = function(event) {
           $("#status").css("background-color","red");
-            console.log("Disconnected (ws://" + window.location.host + ":4652/unify/)");
+            console.log("Disconnected (ws://" + window.location.host + "/video-ws/unify/)");
         };
 
         // Lorsque le serveur envoi un message.
