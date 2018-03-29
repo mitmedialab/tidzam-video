@@ -3,7 +3,7 @@ var global_buffer  = {} //videoid: Packet[]
 var videos = {}
 
 function getPacketTime(packet) {
-  return packet.meta.frame_count / eval(packet.meta.meta.frame_rate_processing)
+  return eval(packet.meta.frame_count) / eval(packet.meta.meta.frame_rate_processing)
 }
 
 function getVideoURL(packet) {
