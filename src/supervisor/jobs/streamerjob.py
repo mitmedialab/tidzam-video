@@ -74,14 +74,16 @@ class Streamer:
 
 
     def open(self):
-        command = ['ffmpeg',
-                   '-i',self.url,
+        FNULL = open(os.devnull, 'w')
+        curl   = sp.Popen(["curl", "--insecure", self.url], stdout=subprocess.PIPE, shell=False)
+        ffmpeg = ['ffmpeg',
+                   '-i','-',
                    '-r',str(self.img_rate),
                    '-f','image2pipe',
                        '-pix_fmt','rgb24',
-                       '-vcodec','rawvideo','-']
+                       '-vcodec','rawvideo']
 
-        self.pipe = sp.Popen(command,stdout = sp.PIPE,bufsize=10**8)
+        self.pipe = sp.Popen(ffmpeg, stdin=curl.stdout, stdout = sp.PIPE,stderr=FNULL,bufsize=10**8)
         self.psProcess = psutil.Process(pid=self.pipe.pid)
         self.psProcess.suspend()
 
