@@ -28,11 +28,11 @@ install_darknet(){
 install(){
   echo "System Package Installation"
   echo "==========================="
-  apt-get install ffprobe ffmpeg
+  apt-get install ffprobe ffmpeg mediainfo
 
   echo "Python Package Installation"
   echo "==========================="
-  pip3 install  aiohttp aiohttp-cors asyncio bson h5py httplib2 matplotlib numpy Pillow protobuf psutil python-engineio python-socketio requests requests-oauthlib scikit-learn socketIO-client urllib3 websocket-client  websockets
+  pip3 install pymediainfo aiohttp aiohttp-cors asyncio bson h5py httplib2 matplotlib numpy Pillow protobuf psutil python-engineio python-socketio requests requests-oauthlib scikit-learn socketIO-client urllib3 websocket-client  websockets
   echo "Installation terminated."
 }
 
