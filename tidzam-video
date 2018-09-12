@@ -60,6 +60,11 @@ stop(){
     rm $PID_FILE
 }
 
+cron(){
+    cd src/
+    python3 cron_daily_request.py
+}
+
 if [ "$ACTION" == "init" ]; then
   if [ -f "$PID_FILE" ]; then
     echo "TidZam-video is already running"
@@ -78,6 +83,9 @@ elif [ "$ACTION" == "install_darknet" ]; then
 
 elif [ "$ACTION" == "install" ]; then
   install
+
+elif [ "$ACTION" == "cron" ]; then
+  cron
 
 else
   echo "tidzam-video (init | start | stop | install | install_darknet)"
