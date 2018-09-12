@@ -56,11 +56,10 @@ class Unifyvideo(Job):
     def loop(self, data):
         try:
             r = requests.pop()
-            
+            #debug("ici,="+str(len(requests)),0)
             return r
         except IndexError:
             pass
-
         return
 
     def requireData(self):
@@ -86,6 +85,13 @@ class WSserver(WebSocket):
                 Unifyvideo.unify(None,data)
                 debug("Incoming unify server request." + str(data["unify"]), 1)
                 self.sendMessage( json.dumps({"unifyvideo":{"stream-add":data["unify"]}}) )
+
+            elif "get_list" in data:
+                self.sendMessage( json.dumps({"get_list":list(requests)} ) )
+
+            elif "del_list" in data:
+                requests.clear()
+                self.sendMessage( json.dumps({"get_list":list(requests)} ) )
 
             elif(checkStreamerConfigSanity(self.data)):
                 requests.append(json.loads(self.data))

@@ -41,8 +41,9 @@ class Storage(Job):
         if packet.data["detection"] == []:
             return
 
-        filename = "-".join(packet.data["from"].split("-")[:-1])
-        filename += "_"+datetime.datetime.utcfromtimestamp(packet.data["meta"]["startTime"]/1000).strftime('%Y-%m-%dT%H:%M:%S')
+        filename = "['tidzam-video']("
+        filename += "-".join(packet.data["from"].split("-")[:-1])
+        filename += ")_"+datetime.datetime.utcfromtimestamp(packet.data["meta"]["startTime"]/1000).strftime('%Y-%m-%dT%H:%M:%S')
         filename = os.path.join(self.storage_path,filename)
 
         # Retrieve the video file
