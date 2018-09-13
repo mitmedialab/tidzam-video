@@ -98,11 +98,12 @@ class WSserver(WebSocket):
                 debug("Incoming url server request." + str(data["url"]), 1)
                 self.sendMessage( json.dumps({"unifyvideo":{"stream-add":data["url"]}}))
             else:
-                debug("Bad configuration received on unify websocket" + self.data)
+                debug("Bad configuration received on unify websocket" + self.data,1)
                 self.sendMessage( json.dumps({"unifyvideo": {"error":"Bad request", "req":self.data} } ))
         except:
-            debug("Bad configuration received on unify websocket" + self.data)
+            debug("Error in configuration received on unify websocket" + self.data, 1)
             self.sendMessage( json.dumps( {"unifyvideo": {"error":"Bad request", "req":self.data} } ))
+            traceback.print_exc()
 
 
     def handleConnected(self):

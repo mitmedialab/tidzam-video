@@ -1,4 +1,4 @@
-import datetime
+import datetime,json
 from websocket import create_connection
 from supervisor.utils.custom_logging import debug,error,warning,ok, _DEBUG_LEVEL
 
@@ -18,7 +18,7 @@ ws = create_connection("ws://localhost:4652")
 debug("Sending unify request ",0)
 debug(str(req),0)
 
-ws.send(str(req))
+ws.send(json.dumps(req))
 result =  ws.recv()
 debug("Response:",0)
 debug(str(result),0)

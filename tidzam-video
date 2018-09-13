@@ -39,7 +39,7 @@ install(){
 start_supervisor(){
   cd src/supervisor/
   nohup python3 supervisor.py \
-  > ../../$LOGS/supervisor.log 2>&1 &
+  > ../../$LOGS/supervisor.log.txt 2>&1 &
   echo $! > "$PID_FILE"
   cd ../..
   echo "Supervisor [ok]"
